@@ -94,7 +94,7 @@ function ImportCard({ onImport }: { onImport: (p: Profile, mode: "merge" | "repl
 
   const onFile = async (f: File | undefined) => {
     if (!f) return;
-    if (f.size > 10 * 1024 * 1024) return setError("10MB 이하 파일만 올릴 수 있어요.");
+    if (f.size > 3 * 1024 * 1024) return setError("3MB 이하 파일만 올릴 수 있어요. 큰 파일은 내용을 복사해 붙여넣어 주세요.");
     if (f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")) {
       const buf = await f.arrayBuffer();
       let bin = "";
@@ -114,7 +114,7 @@ function ImportCard({ onImport }: { onImport: (p: Profile, mode: "merge" | "repl
         <Button variant="secondary" className="w-full" onClick={() => fileRef.current?.click()} disabled={busy}>
           <FileUp />이력서 파일 올리기
         </Button>
-        <p className="text-center text-xs text-slate-400">PDF, TXT · 10MB까지</p>
+        <p className="text-center text-xs text-slate-400">PDF, TXT, 3MB까지</p>
         <textarea
           className={`${inputCls} h-28`}
           placeholder="또는 이력서나 자소서 내용을 여기에 붙여넣으세요"

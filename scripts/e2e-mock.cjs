@@ -62,6 +62,23 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await shot('04b-diff');
     await p.click('text=비교 닫기');
   });
+  await step('revise error keeps original', async () => {
+    const before = await p.innerText('main');
+    await p.route('**/api/agent', r => r.fulfill({
+      status: 200, contentType: 'application/x-ndjson',
+      body: '{"type":"text","text":"반쯤 쓴 글"}\n{"type":"error","text":"테스트 오류예요"}\n',
+    }));
+    await p.fill('input[placeholder="어떻게 고칠까요?"]', '오류 테스트');
+    await p.click('button:has-text("고쳐쓰기")');
+    await p.waitForSelector('text=테스트 오류예요');
+    await p.waitForTimeout(300);
+    const after = await p.innerText('main');
+    await p.unroute('**/api/agent');
+    if (after.includes('반쯤 쓴 글')) throw new Error('partial text left in document');
+    const marker = before.split('\n').find(l => l.includes('(모의 응답)'));
+    if (!marker) throw new Error('no original content marker');
+    if (!after.includes(marker)) throw new Error('original content changed');
+  });
   await step('evaluate', async () => {
     await p.click('button:has-text("기준으로 채점받기") >> visible=true');
     await p.waitForURL(/tab=evaluate/);
@@ -117,6 +134,23 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await p.reload(); await p.waitForTimeout(800);
     const t = await p.textContent('body');
     if (!t.includes('토스')) throw new Error('lost data');
+  });
+  await step('broken data recovery', async () => {
+    await p.evaluate(() => localStorage.setItem('online-interviewer:v2', JSON.stringify({ version: 2, profile: null, applications: [{ company: '깨진데이터', docs: 'x' }] })));
+    await p.goto(BASE + '/app'); await p.waitForTimeout(800);
+    const t = await p.innerText('main');
+    if (!t.includes('깨진데이터')) throw new Error('broken app not shown');
+    await p.click('main >> text=깨진데이터'); await p.waitForURL(/apply/);
+    await p.goto(p.url().split('?')[0] + '?tab=docs'); await p.waitForTimeout(500);
+    const t2 = await p.innerText('main');
+    if (!t2.includes('서류')) throw new Error('docs tab broken');
+  });
+  await step('security headers and icon', async () => {
+    const r = await p.request.get(BASE + '/');
+    const h = r.headers();
+    if (h['x-frame-options'] !== 'DENY' || h['x-content-type-options'] !== 'nosniff') throw new Error('missing headers ' + JSON.stringify(h));
+    const i = await p.request.get(BASE + '/icon.png');
+    if (i.status() !== 200) throw new Error('icon ' + i.status());
   });
   await step('mobile', async () => {
     await p.setViewportSize({ width: 390, height: 844 });

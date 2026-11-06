@@ -28,8 +28,8 @@ export function ResearchPanel({ app, profile, goTab }: PanelProps) {
       },
       (t) => update({ companyProfile: t }),
     );
-    if (res.ok) update({ researchedAt: Date.now() });
-    else if (!res.text.trim()) update({ companyProfile: prev });
+    if (res.ok && !res.stopped) update({ researchedAt: Date.now() });
+    else if (!res.ok) update({ companyProfile: prev });
   };
 
   return (

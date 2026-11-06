@@ -1,15 +1,16 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AGENTS, AGENT_IDS, AgentContext, AgentId, CONTEXT_LABELS, buildContextBlock } from "@/lib/agents";
-import { MODEL, guard, isMock } from "@/lib/server/guard";
+import { LIMITS } from "@/lib/limits";
+import { MODEL, friendlyError, guard, isMock } from "@/lib/server/guard";
 import { mockStream } from "@/lib/server/mock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-const MAX_FIELD = 40_000;
-const MAX_MESSAGES = 80;
-const MAX_MESSAGE = 10_000;
+const MAX_FIELD = LIMITS.contextField;
+const MAX_MESSAGES = LIMITS.messages;
+const MAX_MESSAGE = LIMITS.message;
 
 interface Body {
   agent: AgentId;
@@ -26,7 +27,11 @@ export type StreamEvent =
   | { type: "error"; text: string };
 
 function validate(body: Body): string | null {
+  if (!body || typeof body !== "object") return "잘못된 요청이에요.";
   if (!AGENT_IDS.includes(body.agent)) return "알 수 없는 에이전트예요.";
+  if (body.context != null && typeof body.context !== "object") return "참고 자료 형식이 올바르지 않아요.";
+  if (body.messages != null && !Array.isArray(body.messages)) return "메시지 형식이 올바르지 않아요.";
+  if (body.instruction != null && typeof body.instruction !== "string") return "요청 형식이 올바르지 않아요.";
   for (const [k, v] of Object.entries(body.context ?? {})) {
     if (!(k in CONTEXT_LABELS)) return `알 수 없는 항목: ${k}`;
     if (typeof v !== "string" || v.length > MAX_FIELD) return `${k} 내용이 너무 길어요 (최대 ${MAX_FIELD.toLocaleString()}자).`;
@@ -34,23 +39,13 @@ function validate(body: Body): string | null {
   const msgs = body.messages ?? [];
   if (msgs.length > MAX_MESSAGES) return "대화가 너무 길어요. 새 면접을 시작해 주세요.";
   for (const m of msgs) {
-    if ((m.role !== "user" && m.role !== "assistant") || typeof m.content !== "string" || m.content.length > MAX_MESSAGE)
+    if (!m || (m.role !== "user" && m.role !== "assistant") || typeof m.content !== "string" || m.content.length > MAX_MESSAGE)
       return "메시지 형식이 올바르지 않거나 너무 길어요.";
   }
+  if (msgs.length && msgs[0].role !== "user") return "대화는 사용자 메시지로 시작해야 해요.";
+  if (msgs.length && msgs[msgs.length - 1].role !== "user") return "마지막 메시지는 사용자 메시지여야 해요.";
   if (body.instruction && body.instruction.length > MAX_MESSAGE) return "요청이 너무 길어요.";
   return null;
-}
-
-function friendlyError(err: unknown): string {
-  if (err instanceof Anthropic.AuthenticationError) return "API 키가 올바르지 않아요. 서버의 ANTHROPIC_API_KEY를 확인해 주세요.";
-  if (err instanceof Anthropic.PermissionDeniedError) return "이 API 키로는 해당 모델을 쓸 수 없어요.";
-  if (err instanceof Anthropic.RateLimitError) return "Claude API 사용량 한도에 걸렸어요. 1~2분 뒤 다시 시도해 주세요.";
-  if (err instanceof Anthropic.BadRequestError) return `요청 형식 오류: ${err.message}`;
-  if (err instanceof Anthropic.InternalServerError) return "Claude API가 일시적으로 불안정해요. 잠시 후 다시 시도해 주세요.";
-  if (err instanceof Anthropic.APIConnectionError) return "Claude API에 연결하지 못했어요. 네트워크를 확인해 주세요.";
-  if (err instanceof Error && err.message.includes("authentication method"))
-    return "서버에 ANTHROPIC_API_KEY가 설정되지 않았어요. .env.local에 키를 넣고 서버를 다시 시작해 주세요.";
-  return err instanceof Error ? err.message : String(err);
 }
 
 export async function POST(req: Request) {

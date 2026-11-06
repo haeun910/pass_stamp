@@ -61,7 +61,7 @@ function QuestionBank({ app, profile, goTab }: PanelProps) {
       { instruction: `${app.company || "지원 회사"} ${app.role} 면접의 예상 질문과 답변 전략을 정리해 주세요.` },
       (t) => updateApp(app.id, { questionBank: t }),
     );
-    if (!res.text.trim()) updateApp(app.id, { questionBank: prev });
+    if (!res.ok) updateApp(app.id, { questionBank: prev });
   };
   return (
     <Card
@@ -241,7 +241,8 @@ function Session({
       const res = await agent.run("interviewer", ctx, { messages: history }, (t) =>
         update({ messages: [...history, { role: "assistant", content: t, at }] }),
       );
-      if (!res.text.trim()) update({ messages: history }); // 실패하면 다시 시도할 수 있게 되돌려요
+      // 끊기거나 중지된 질문은 남기지 않고 되돌려서 다시 시도할 수 있게 해요.
+      if (!res.ok || res.stopped) update({ messages: history });
       else if (s.voice) speech.speak(stripMarkdown(res.text));
     },
     [agent, ctx, s.voice, speech, update],
@@ -294,7 +295,7 @@ function Session({
     setShowTranscript(false);
     const history: ChatMessage[] = [...msgs, { role: "user", content: END_TEXT }];
     const res = await report.run("interviewer", ctx, { messages: history }, (t) => update({ report: t }));
-    if (res.ok) update({ report: res.text, score: parseScore(res.text), endedAt: Date.now() });
+    if (res.ok && !res.stopped) update({ report: res.text, score: parseScore(res.text), endedAt: Date.now() });
     else update({ report: "" });
   };
 
@@ -370,11 +371,12 @@ function Session({
               <div ref={endRef} />
             </div>
 
-            {!agent.busy && agent.error && (
-              <div className="space-y-2">
-                <AgentStatus {...agent} onStop={agent.stop} />
-                {last?.role === "user" && <Button size="sm" onClick={() => ask(msgs)}>다시 시도</Button>}
-              </div>
+            {!agent.busy && agent.error && <AgentStatus {...agent} onStop={agent.stop} />}
+            {/* 오류가 났거나, 질문을 받던 중에 면접 목록으로 나갔다 돌아온 경우 이어서 질문을 받을 수 있게 해요. */}
+            {!agent.busy && !finished && last?.role === "user" && (msgs.length > 1 || !!agent.error) && (
+              <Button size="sm" variant="secondary" onClick={() => ask(msgs)}>
+                {agent.error ? "다시 시도" : "다음 질문 받기"}
+              </Button>
             )}
 
             {interviewerDone && !finished && (
@@ -443,7 +445,7 @@ function VoiceToggle({ value, onChange }: { value: boolean; onChange: (v: boolea
       <span className="text-sm">
         <span className="font-medium">음성 면접</span>
         <span className="block text-xs text-slate-500">
-          면접관 질문을 소리로 읽어 주고, 마이크로 답할 수 있어요.
+          면접관 질문을 소리로 읽어 주고, 마이크로 답할 수 있어요. 말한 내용은 브라우저 제공사(크롬은 Google)의 음성 인식 서버를 거쳐 글로 바뀌어요.
           {!supported && " 이 브라우저는 음성 인식을 지원하지 않아 읽어주기만 돼요. 크롬이나 엣지를 권장해요."}
         </span>
       </span>

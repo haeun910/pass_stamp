@@ -3,9 +3,9 @@ import { useRef, useState } from "react";
 import { Badge, Button, Card, PageHeader, inputCls } from "@/components/ui";
 import { SITE } from "@/lib/site";
 import { getAccessCode, setAccessCode, useHealth } from "@/lib/client";
-import { useStore } from "@/lib/store";
+import { normalizeData, useStore } from "@/lib/store";
 import { downloadText, todayStringSafe } from "@/lib/text";
-import { emptyProfile, type AppData } from "@/lib/types";
+import { emptyProfile } from "@/lib/types";
 
 export default function SettingsPage() {
   const { data, replaceAll } = useStore();
@@ -19,8 +19,8 @@ export default function SettingsPage() {
   const importFile = async (f: File | undefined) => {
     if (!f) return;
     try {
-      const parsed = JSON.parse(await f.text()) as AppData;
-      if (parsed?.version !== 2 || !Array.isArray(parsed.applications)) throw new Error();
+      const parsed = normalizeData(JSON.parse(await f.text()));
+      if (!parsed) throw new Error();
       if (!confirm(`백업 파일로 지금 데이터를 바꿀까요? (지원 ${parsed.applications.length}곳)`)) return;
       replaceAll(parsed);
       setMsg("백업을 불러왔어요.");

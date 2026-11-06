@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
-import { MODEL, guard, isMock } from "@/lib/server/guard";
+import { MODEL, friendlyError, guard, isMock } from "@/lib/server/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +20,8 @@ const ProfileSchema = z.object({
   extra: z.string(),
 });
 
-const MAX_PDF_BASE64 = 14_000_000; // 약 10MB
+// Vercel 함수는 요청 본문이 4.5MB까지라, base64로 늘어나는 걸 감안해 PDF는 3MB까지 받아요.
+const MAX_PDF_BASE64 = 4_200_000;
 const MAX_TEXT = 60_000;
 
 const SYSTEM = `기존 이력서, 자기소개서, 포트폴리오에서 지원자 정보를 뽑아 항목별로 정리합니다.
@@ -37,13 +38,14 @@ export async function POST(req: Request) {
   let body: { kind: "pdf" | "text"; data?: string; text?: string };
   try {
     body = await req.json();
+    if (!body || typeof body !== "object") throw new Error();
   } catch {
     return Response.json({ error: "잘못된 요청이에요." }, { status: 400 });
   }
 
   let content: Anthropic.ContentBlockParam[];
   if (body.kind === "pdf" && typeof body.data === "string") {
-    if (body.data.length > MAX_PDF_BASE64) return Response.json({ error: "PDF는 10MB 이하만 올릴 수 있어요." }, { status: 400 });
+    if (body.data.length > MAX_PDF_BASE64) return Response.json({ error: "PDF는 3MB 이하만 올릴 수 있어요. 큰 파일은 텍스트를 복사해 붙여넣어 주세요." }, { status: 413 });
     content = [
       { type: "document", source: { type: "base64", media_type: "application/pdf", data: body.data } },
       { type: "text", text: "이 문서에서 지원자 정보를 항목별로 정리해 주세요." },
@@ -86,12 +88,6 @@ export async function POST(req: Request) {
     }
     return Response.json({ profile: res.parsed_output });
   } catch (err) {
-    const msg =
-      err instanceof Anthropic.APIError
-        ? `Claude API 오류 (${err.status ?? "연결"}): ${err.message}`
-        : err instanceof Error && err.message.includes("authentication method")
-          ? "서버에 ANTHROPIC_API_KEY가 설정되지 않았어요."
-          : String(err);
-    return Response.json({ error: msg }, { status: 500 });
+    return Response.json({ error: friendlyError(err) }, { status: 502 });
   }
 }

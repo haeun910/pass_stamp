@@ -189,7 +189,8 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   interviewer: {
     label: "모의 면접",
     effort: "low",
-    maxTokens: 8000,
+    // 생각(thinking)이 항상 켜져 있어서 마지막 피드백 리포트까지 들어갈 여유를 둬요.
+    maxTokens: 16000,
     system: `${COMMON}
 
 # 역할

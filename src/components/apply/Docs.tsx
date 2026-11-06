@@ -133,6 +133,7 @@ function DocEditor({
   const hasProfile = Object.values(profile).some((v) => v.trim());
 
   const generate = async (kind: "write" | "revise", request?: string, evaluation?: string) => {
+    const before = doc.content;
     // 생성 전에 지금 내용을 버전으로 남겨서 언제든 되돌릴 수 있게 해요.
     update((d) => withSnapshot(d, "직접 수정"));
     setMode("preview");
@@ -147,9 +148,12 @@ function DocEditor({
         ? `${app.company || "지원 회사"} ${app.role} 직무에 제출할 ${doc.type}를 작성해 주세요.`
         : `현재 서류를 수정 요청에 맞게 고쳐 주세요.`;
     const res = await agent.run(kind === "write" ? "writer" : "reviser", ctx, { instruction }, (t) => update({ content: t }));
-    if (res.text.trim()) {
+    if (res.ok) {
       const note = kind === "write" ? (doc.versions.length ? "다시 쓰기" : "초안") : evaluation ? "피드백 반영" : `수정: ${request?.slice(0, 30)}`;
-      update((d) => withSnapshot({ ...d, content: res.text }, note));
+      update((d) => withSnapshot({ ...d, content: res.text }, res.stopped ? `${note} (중지됨)` : note));
+    } else {
+      // 오류로 중간에 끊기면 반쯤 쓴 글 대신 원래 내용을 돌려놔요.
+      update({ content: before });
     }
     if (kind === "revise") setRevision("");
   };

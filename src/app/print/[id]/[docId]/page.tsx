@@ -2,12 +2,14 @@
 import { useParams } from "next/navigation";
 import { Markdown } from "@/components/Markdown";
 import { splitMemo } from "@/components/apply/shared";
-import { useApp } from "@/lib/store";
+import { useApp, useStore } from "@/lib/store";
 
 export default function PrintPage() {
   const { id, docId } = useParams<{ id: string; docId: string }>();
+  const { ready } = useStore();
   const app = useApp(id);
   const doc = app?.docs.find((d) => d.id === docId);
+  if (!ready) return null;
   if (!app || !doc) return <p className="p-10 text-sm text-slate-500">서류를 찾을 수 없어요.</p>;
   const { body } = splitMemo(doc.content);
   return (

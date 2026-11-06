@@ -49,7 +49,7 @@ export function EvaluatePanel({
       { instruction: `${app.company || "지원 회사"}의 서류 평가관으로서 이 ${doc.type}를 평가해 주세요.` },
       setStreaming,
     );
-    if (res.ok) {
+    if (res.ok && !res.stopped) {
       updateDoc(app.id, doc.id, (d) => ({
         evaluations: [
           ...d.evaluations,

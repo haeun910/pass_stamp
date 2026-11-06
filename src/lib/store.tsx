@@ -6,6 +6,7 @@ import {
   Doc,
   InterviewSession,
   Profile,
+  defaultInterviewSettings,
   emptyProfile,
   newApplication,
   newDoc,
@@ -18,6 +19,47 @@ const LEGACY_KEY = "online-interviewer:v1";
 
 function emptyData(): AppData {
   return { version: 2, profile: emptyProfile(), applications: [] };
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+const arr = <T,>(v: unknown, fn: (x: Record<string, unknown>) => T): T[] => (Array.isArray(v) ? v.filter(isObj).map(fn) : []);
+
+/**
+ * 저장된 데이터나 백업 파일에 빠진 항목이 있어도 화면이 깨지지 않게 기본값으로 채워요.
+ * 잘못된 백업 하나 때문에 앱이 계속 열리지 않는 일을 막아요.
+ */
+export function normalizeData(raw: unknown): AppData | null {
+  if (!isObj(raw) || raw.version !== 2 || !Array.isArray(raw.applications)) return null;
+  const profile = { ...emptyProfile() };
+  if (isObj(raw.profile)) for (const k of Object.keys(profile) as (keyof Profile)[]) if (typeof raw.profile[k] === "string") profile[k] = raw.profile[k] as string;
+  const applications = arr(raw.applications, (a) => {
+    const base = newApplication();
+    const app = { ...base, ...a, id: typeof a.id === "string" ? a.id : base.id } as Application;
+    app.docs = arr(a.docs, (d) => {
+      const nd = newDoc((typeof d.type === "string" ? d.type : "자기소개서") as DocType);
+      return {
+        ...nd,
+        ...d,
+        id: typeof d.id === "string" ? d.id : nd.id,
+        content: typeof d.content === "string" ? d.content : "",
+        questions: Array.isArray(d.questions) ? d.questions : [],
+        versions: Array.isArray(d.versions) ? d.versions : [],
+        evaluations: Array.isArray(d.evaluations) ? d.evaluations : [],
+      } as Doc;
+    });
+    app.interviews = arr(a.interviews, (x) => ({
+      id: uid(),
+      report: "",
+      score: null,
+      startedAt: Date.now(),
+      endedAt: null,
+      ...x,
+      settings: { ...defaultInterviewSettings(), ...(isObj(x.settings) ? x.settings : {}) },
+      messages: Array.isArray(x.messages) ? x.messages : [],
+    }) as InterviewSession);
+    return app;
+  });
+  return { version: 2, profile, applications };
 }
 
 /** v1(단일 서류, 텍스트 경험) 데이터를 v2 구조로 옮겨요. */
@@ -88,8 +130,8 @@ function load(): AppData {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as AppData;
-      if (parsed?.version === 2) return { ...emptyData(), ...parsed, profile: { ...emptyProfile(), ...parsed.profile } };
+      const parsed = normalizeData(JSON.parse(raw));
+      if (parsed) return parsed;
     }
     const legacy = localStorage.getItem(LEGACY_KEY);
     if (legacy) {
@@ -126,32 +168,56 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latest = useRef<AppData | null>(null);
+  const lastSaved = useRef(0);
 
   useEffect(() => {
     setData(load());
     setReady(true);
   }, []);
 
-  // 스트리밍 중에는 매 토큰마다 저장하지 않도록 잠깐 모아서 저장해요.
+  const flush = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    if (!latest.current) return;
+    try {
+      localStorage.setItem(KEY, JSON.stringify(latest.current));
+      lastSaved.current = Date.now();
+      latest.current = null;
+      setSaveError(false);
+    } catch {
+      setSaveError(true);
+    }
+  }, []);
+
+  // 스트리밍 중에는 매 토큰마다 저장하지 않도록 모아서 저장하되, 2초 넘게 미루지는 않아요.
   useEffect(() => {
     if (!ready) return;
+    latest.current = data;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      try {
-        localStorage.setItem(KEY, JSON.stringify(data));
-        setSaveError(false);
-      } catch {
-        setSaveError(true);
-      }
-    }, 400);
-  }, [data, ready]);
+    if (Date.now() - lastSaved.current > 2000) timer.current = setTimeout(flush, 0);
+    else timer.current = setTimeout(flush, 400);
+  }, [data, ready, flush]);
+
+  // 탭을 닫거나 다른 앱으로 넘어갈 때 남은 변경을 바로 저장해요.
+  useEffect(() => {
+    const onHide = () => flush();
+    const onVisibility = () => document.visibilityState === "hidden" && flush();
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [flush]);
 
   // 다른 탭에서 바뀐 내용도 반영해요.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === KEY && e.newValue) {
         try {
-          setData(JSON.parse(e.newValue));
+          const next = normalizeData(JSON.parse(e.newValue));
+          if (next) setData(next);
         } catch {}
       }
     };
@@ -194,7 +260,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ...a,
           interviews: a.interviews.map((s) => (s.id === sessionId ? { ...s, ...(typeof patch === "function" ? patch(s) : patch) } : s)),
         })),
-      replaceAll: (next) => setData({ ...emptyData(), ...next, profile: { ...emptyProfile(), ...next.profile } }),
+      replaceAll: (next) => setData(normalizeData(next) ?? emptyData()),
     }),
     [ready, data, saveError, mapApp],
   );

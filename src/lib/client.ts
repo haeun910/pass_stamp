@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentContext, AgentId } from "./agents";
+import { LIMITS } from "./limits";
 import type { Application, ChatMessage, Doc, InterviewSettings, Profile } from "./types";
 import { profileToText } from "./types";
 
@@ -72,6 +73,33 @@ export function settingsText(s: InterviewSettings): string {
 
 type Ev = { type: "status" | "text" | "notice" | "error"; text: string };
 
+/**
+ * ok: 끝까지(또는 사용자가 멈출 때까지) 내용을 받았는지.
+ * stopped: 사용자가 중지했는지. 오류로 끊긴 경우(ok=false)에는 부르는 쪽에서 이전 내용으로 되돌려요.
+ */
+export interface AgentResult {
+  text: string;
+  ok: boolean;
+  stopped: boolean;
+}
+
+const CLIP_NOTE = "\n\n(내용이 길어서 뒷부분은 생략했어요)";
+
+/** 고쳐 쓸 대상 서류는 자르면 뒷부분이 사라진 수정본이 나오니, 자르지 않고 막아요. */
+const NO_CLIP: (keyof AgentContext)[] = ["document"];
+
+/** 서버 한도를 넘는 참고 자료는 잘라서 보내요. 서류가 많아도 면접이나 채점이 막히지 않게 해요. */
+function clipContext(ctx: AgentContext): { context: AgentContext; tooLong: keyof AgentContext | null } {
+  const out: AgentContext = {};
+  for (const [k, v] of Object.entries(ctx) as [keyof AgentContext, string | undefined][]) {
+    if (typeof v !== "string") continue;
+    if (v.length <= LIMITS.contextField) out[k] = v;
+    else if (NO_CLIP.includes(k)) return { context: out, tooLong: k };
+    else out[k] = v.slice(0, LIMITS.contextField - CLIP_NOTE.length) + CLIP_NOTE;
+  }
+  return { context: out, tooLong: null };
+}
+
 /** 에이전트를 스트리밍으로 부르고, 진행 상태와 중지를 관리해요. */
 export function useAgent() {
   const [busy, setBusy] = useState(false);
@@ -90,7 +118,12 @@ export function useAgent() {
       context: AgentContext,
       opts: { instruction?: string; messages?: ChatMessage[] },
       onText: (full: string) => void,
-    ): Promise<{ text: string; ok: boolean }> => {
+    ): Promise<AgentResult> => {
+      const clipped = clipContext(context);
+      if (clipped.tooLong) {
+        setError(`서류가 ${LIMITS.contextField.toLocaleString()}자를 넘어서 한 번에 처리할 수 없어요. 서류를 나눠 주세요.`);
+        return { text: "", ok: false, stopped: false };
+      }
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
@@ -100,13 +133,14 @@ export function useAgent() {
       setStatus("연결하는 중");
       let full = "";
       let ok = true;
+      let stopped = false;
       try {
         const res = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...authHeaders() },
           body: JSON.stringify({
             agent,
-            context,
+            context: clipped.context,
             instruction: opts.instruction,
             messages: opts.messages?.map(({ role, content }) => ({ role, content })),
           }),
@@ -146,7 +180,8 @@ export function useAgent() {
         }
       } catch (e) {
         if (ac.signal.aborted) {
-          setNotice("생성을 중지했어요. 여기까지 작성된 내용은 저장돼요.");
+          stopped = true;
+          setNotice("생성을 중지했어요. 여기까지 작성된 내용은 남겨 둘게요.");
           ok = full.length > 0;
         } else {
           ok = false;
@@ -157,7 +192,7 @@ export function useAgent() {
         setBusy(false);
         setStatus("");
       }
-      return { text: full, ok: ok && full.trim().length > 0 };
+      return { text: full, ok: ok && full.trim().length > 0, stopped };
     },
     [],
   );
