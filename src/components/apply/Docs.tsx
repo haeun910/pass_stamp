@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Download, PenLine, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "@/components/Markdown";
 import { AgentStatus, Badge, Button, Card, CopyButton, Empty, Field, inputCls, scoreTone } from "@/components/ui";
@@ -47,10 +48,10 @@ export function DocsPanel({
             <button
               key={d.id}
               onClick={() => setDocId(d.id)}
-              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition ${doc?.id === d.id ? "border-indigo-600 bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300" : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"}`}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition ${doc?.id === d.id ? "border-brand-900 bg-sheet font-semibold text-brand-900 ring-1 ring-brand-900 dark:border-brand-200 dark:text-white dark:ring-brand-200" : "border-rule bg-sheet hover:bg-slate-50 dark:hover:bg-slate-800"}`}
             >
               {d.title}
-              {score != null && <Badge tone={stale ? "zinc" : scoreTone(score)}>{score}{stale ? " · 수정 전" : ""}</Badge>}
+              {score != null && <Badge tone={stale ? "slate" : scoreTone(score)}>{score}{stale ? " · 수정 전" : ""}</Badge>}
             </button>
           );
         })}
@@ -60,10 +61,10 @@ export function DocsPanel({
       {!doc ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {DOC_TYPES.map((t) => (
-            <button key={t} onClick={() => add(t)} className="rounded-2xl border border-zinc-200 bg-white p-5 text-left transition hover:border-indigo-400 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60">
+            <button key={t} onClick={() => add(t)} className="rounded-xl border border-rule bg-sheet p-5 text-left transition hover:border-brand-400 hover:shadow-sm">
               <div className="font-semibold">{t}</div>
-              <p className="mt-1 text-sm text-zinc-500">{TYPE_DESC[t]}</p>
-              <p className="mt-3 text-sm font-medium text-indigo-600">+ 만들기</p>
+              <p className="mt-1 text-sm text-slate-500">{TYPE_DESC[t]}</p>
+              <p className="mt-4 text-sm font-semibold text-brand-800 dark:text-brand-200">만들기</p>
             </button>
           ))}
         </div>
@@ -90,15 +91,15 @@ function AddDocMenu({ onAdd, compact }: { onAdd: (t: DocType) => void; compact: 
   if (!compact) return null;
   return (
     <div className="relative">
-      <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)}>+ 서류 추가</Button>
+      <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}><Plus />서류 추가</Button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 z-20 mt-1 w-56 rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="absolute left-0 z-20 mt-1 w-56 rounded-xl border border-rule bg-sheet p-1 shadow-lg">
             {DOC_TYPES.map((t) => (
-              <button key={t} onClick={() => { onAdd(t); setOpen(false); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">
+              <button key={t} onClick={() => { onAdd(t); setOpen(false); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800">
                 {t}
-                <span className="block text-xs text-zinc-500">{TYPE_DESC[t]}</span>
+                <span className="block text-xs text-slate-500">{TYPE_DESC[t]}</span>
               </button>
             ))}
           </div>
@@ -147,7 +148,7 @@ function DocEditor({
         : `현재 서류를 수정 요청에 맞게 고쳐 주세요.`;
     const res = await agent.run(kind === "write" ? "writer" : "reviser", ctx, { instruction }, (t) => update({ content: t }));
     if (res.text.trim()) {
-      const note = kind === "write" ? (doc.versions.length ? "다시 쓰기" : "초안") : evaluation ? "평가 반영" : `수정: ${request?.slice(0, 30)}`;
+      const note = kind === "write" ? (doc.versions.length ? "다시 쓰기" : "초안") : evaluation ? "피드백 반영" : `수정: ${request?.slice(0, 30)}`;
       update((d) => withSnapshot({ ...d, content: res.text }, note));
     }
     if (kind === "revise") setRevision("");
@@ -205,7 +206,8 @@ function DocEditor({
 
         {doc.versions.length > 0 && (
           <Card
-            title={`버전 기록 · ${doc.versions.length}`}
+            title="버전 기록"
+            subtitle={`${doc.versions.length}개 저장됨`}
             actions={<Button variant="ghost" size="sm" onClick={() => setShowVersions((s) => !s)}>{showVersions ? "접기" : "펼치기"}</Button>}
           >
             {showVersions ? (
@@ -214,15 +216,15 @@ function DocEditor({
                   const ev = doc.evaluations.filter((e) => e.versionId === v.id).pop();
                   const current = v.content === doc.content;
                   return (
-                    <li key={v.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
+                    <li key={v.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-900/[0.03] dark:hover:bg-white/5">
                       <span className="min-w-0 truncate">
-                        <span className="text-zinc-400">v{doc.versions.length - i}</span> {v.note}
-                        <span className="ml-2 text-xs text-zinc-500">{relativeTime(v.at)}</span>
+                        <span className="text-slate-400">v{doc.versions.length - i}</span> {v.note}
+                        <span className="ml-2 text-xs text-slate-500">{relativeTime(v.at)}</span>
                       </span>
                       <span className="flex shrink-0 items-center gap-1.5">
                         {ev?.score != null && <Badge tone={scoreTone(ev.score)}>{ev.score}점</Badge>}
                         {current ? (
-                          <Badge tone="indigo">현재</Badge>
+                          <Badge tone="brand">현재</Badge>
                         ) : (
                           <Button
                             variant="ghost"
@@ -239,7 +241,7 @@ function DocEditor({
                 })}
               </ul>
             ) : (
-              <p className="text-sm text-zinc-500">마지막 저장: {doc.versions[doc.versions.length - 1].note} · {relativeTime(doc.versions[doc.versions.length - 1].at)}</p>
+              <p className="text-sm text-slate-500">마지막 저장: {doc.versions[doc.versions.length - 1].note}, {relativeTime(doc.versions[doc.versions.length - 1].at)}</p>
             )}
           </Card>
         )}
@@ -248,12 +250,13 @@ function DocEditor({
       {/* 오른쪽: 결과 */}
       <div ref={resultRef} className={`scroll-mt-20 space-y-5 ${doc.content.trim() || agent.busy ? "order-1 xl:order-none" : ""}`}>
         <Card
-          title={doc.title}
-          subtitle={doc.content.trim() ? `공백 포함 ${countChars(stripMarkdown(body)).withSpaces.toLocaleString()}자` : undefined}
+          className="doc-sheet rounded-md shadow-[0_14px_36px_-20px_rgba(27,42,74,0.4)] sm:px-9 sm:py-8"
+          title={<span className="font-serif text-lg">{doc.title}</span>}
+          subtitle={doc.content.trim() ? `${app.company || "회사"} 제출용, 공백 포함 ${countChars(stripMarkdown(body)).withSpaces.toLocaleString()}자` : undefined}
           actions={
             doc.content.trim() && !agent.busy ? (
               <>
-                <div className="flex rounded-lg border border-zinc-200 p-0.5 dark:border-zinc-700">
+                <div className="flex rounded-lg border border-rule p-0.5" role="tablist" aria-label="보기 방식">
                   {(["preview", "edit"] as const).map((m) => (
                     <button
                       key={m}
@@ -261,7 +264,9 @@ function DocEditor({
                         if (m === "preview") update((d) => withSnapshot(d, "직접 수정"));
                         setMode(m);
                       }}
-                      className={`rounded-md px-2.5 py-1 text-xs ${mode === m ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-600 dark:text-zinc-300"}`}
+                      role="tab"
+                      aria-selected={mode === m}
+                      className={`h-7 rounded-md px-2.5 text-xs font-semibold ${mode === m ? "bg-brand-900 text-white dark:bg-brand-200 dark:text-brand-950" : "text-slate-600 dark:text-slate-300"}`}
                     >
                       {m === "preview" ? "미리보기" : "편집"}
                     </button>
@@ -285,18 +290,17 @@ function DocEditor({
           <div className="space-y-3">
             <AgentStatus {...agent} onStop={agent.stop} />
             {!doc.content.trim() && !agent.busy && mode !== "edit" ? (
-              <Empty icon="📝">
-                왼쪽에서 설정하고 쓰기를 누르면 회사 프로필과 내 프로필을 바탕으로 초안을 써요.
-                <br />
-                이미 쓴 서류가 있다면 붙여넣고 바로 평가받을 수도 있어요.
-                <div className="mt-4">
-                  <Button variant="secondary" onClick={() => setMode("edit")}>직접 붙여넣기</Button>
-                </div>
+              <Empty
+                icon={<PenLine />}
+                title="아직 비어 있어요"
+                action={<Button variant="secondary" onClick={() => setMode("edit")}>쓴 서류 붙여넣기</Button>}
+              >
+                작성 설정을 마치고 쓰기를 누르면 회사 프로필과 내 프로필로 초안을 써요. 이미 쓴 서류가 있다면 붙여넣고 바로 채점받을 수도 있어요.
               </Empty>
             ) : mode === "edit" && !agent.busy ? (
               <textarea
                 autoFocus
-                className={`${inputCls} min-h-[32rem] font-mono text-[13px] leading-relaxed`}
+                className={`${inputCls} min-h-[32rem] font-serif text-[15px] leading-[1.9]`}
                 value={doc.content}
                 onChange={(e) => update({ content: e.target.value })}
                 onBlur={() => update((d) => withSnapshot(d, "직접 수정"))}
@@ -319,9 +323,9 @@ function DocEditor({
           <Card title="다음 단계">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={() => goTab("evaluate", { doc: doc.id })}>{lastEval ? "다시 평가받기" : `${app.company || "회사"} 기준으로 평가받기`}</Button>
+                <Button onClick={() => goTab("evaluate", { doc: doc.id })}>{lastEval ? "다시 채점받기" : `${app.company || "회사"} 기준으로 채점받기`}</Button>
                 {lastEval && (
-                  <span className="text-sm text-zinc-500">
+                  <span className="text-sm text-slate-500">
                     마지막 평가 <Badge tone={scoreTone(lastEval.score)}>{lastEval.score ?? "-"}점</Badge>
                     {lastEval.versionId !== latestVersionId(doc) && <span className="ml-1 text-xs">(평가 후 수정됨)</span>}
                   </span>
@@ -358,7 +362,7 @@ function QuestionsEditor({ doc, update }: { doc: Doc; update: (p: Partial<Doc>) 
       <div className="space-y-2">
         {doc.questions.map((q, i) => (
           <div key={q.id} className="flex gap-2">
-            <span className="mt-2 w-5 shrink-0 text-right text-sm text-zinc-400">{i + 1}.</span>
+            <span className="mt-2 w-5 shrink-0 text-right text-sm text-slate-400">{i + 1}.</span>
             <textarea
               className={`${inputCls} h-16 flex-1`}
               value={q.question}
@@ -377,9 +381,9 @@ function QuestionsEditor({ doc, update }: { doc: Doc; update: (p: Partial<Doc>) 
                     set(q.id, { limit: Number.isFinite(n) ? n : null });
                   }}
                 />
-                <span className="pointer-events-none absolute right-2 top-2 text-xs text-zinc-400">자</span>
+                <span className="pointer-events-none absolute right-2 top-2 text-xs text-slate-400">자</span>
               </div>
-              <button className="text-xs text-zinc-400 hover:text-red-500" onClick={() => update({ questions: doc.questions.filter((x) => x.id !== q.id) })}>
+              <button className="text-xs text-slate-400 hover:text-pen" onClick={() => update({ questions: doc.questions.filter((x) => x.id !== q.id) })}>
                 삭제
               </button>
             </div>
@@ -409,23 +413,23 @@ function CharCountTable({ doc, body }: { doc: Doc; body: string }) {
           <li key={a.index} className="space-y-1.5">
             <div className="flex items-start justify-between gap-3 text-sm">
               <span className="flex min-w-0 flex-1 gap-1.5 leading-snug" title={q?.question || a.heading}>
-                <span className="shrink-0 font-medium text-zinc-400">{a.index}.</span>
+                <span className="shrink-0 font-medium text-slate-400">{a.index}.</span>
                 <span className="line-clamp-2">{q?.question || a.heading}</span>
               </span>
-              <span className={`shrink-0 tabular-nums ${over ? "font-semibold text-red-600" : low ? "text-amber-600" : "text-zinc-700 dark:text-zinc-300"}`}>
+              <span className={`shrink-0 tabular-nums ${over ? "font-semibold text-pen" : low ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"}`}>
                 {c.withSpaces.toLocaleString()}
-                {limit ? <span className="text-zinc-400"> / {limit.toLocaleString()}</span> : null}
+                {limit ? <span className="text-slate-400"> / {limit.toLocaleString()}</span> : null}
               </span>
             </div>
             {limit ? (
-              <div className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
                 <div
-                  className={`h-full rounded-full ${over ? "bg-red-500" : low ? "bg-amber-400" : "bg-emerald-500"}`}
+                  className={`h-full rounded-full ${over ? "bg-pen" : low ? "bg-amber-400" : "bg-pass"}`}
                   style={{ width: `${Math.min(100, (c.withSpaces / limit) * 100)}%` }}
                 />
               </div>
             ) : null}
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-slate-500">
               공백 제외 {c.withoutSpaces.toLocaleString()}자
               {limit ? (over ? ` · ${(c.withSpaces - limit).toLocaleString()}자 초과` : ` · ${(limit - c.withSpaces).toLocaleString()}자 남음`) : ""}
             </p>
@@ -433,7 +437,7 @@ function CharCountTable({ doc, body }: { doc: Doc; body: string }) {
         ))}
       </ul>
       {rows.some((r) => r.over) && (
-        <p className="mt-3 text-xs text-red-600">글자 수를 넘긴 문항이 있어요. 고쳐쓰기에 &quot;N번 문항을 제한에 맞게 줄여줘&quot;라고 요청해 보세요.</p>
+        <p className="mt-3 text-xs text-pen">글자 수를 넘긴 문항이 있어요. 고쳐쓰기에 &quot;N번 문항을 제한에 맞게 줄여줘&quot;라고 요청해 보세요.</p>
       )}
       {rows.some((r) => r.low) && !rows.some((r) => r.over) && (
         <p className="mt-3 text-xs text-amber-700">제한의 80%보다 짧은 문항이 있어요. 보통 90% 이상 채우는 게 좋아요.</p>
@@ -446,18 +450,18 @@ function ExportMenu({ onMd, onTxt, printHref }: { onMd: () => void; onTxt: () =>
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <Button variant="secondary" size="sm" onClick={() => setOpen((o) => !o)}>내보내기</Button>
+      <Button variant="secondary" size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}><Download />내보내기</Button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-1 w-44 rounded-xl border border-zinc-200 bg-white p-1 text-sm shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
-            <a href={printHref} target="_blank" rel="noreferrer" className="block rounded-lg px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setOpen(false)}>
+          <div className="absolute right-0 z-20 mt-1 w-44 rounded-xl border border-rule bg-sheet p-1 text-sm shadow-lg">
+            <a href={printHref} target="_blank" rel="noreferrer" className="block rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setOpen(false)}>
               PDF로 저장 / 인쇄
             </a>
-            <button className="block w-full rounded-lg px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => { onTxt(); setOpen(false); }}>
+            <button className="block w-full rounded-lg px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { onTxt(); setOpen(false); }}>
               텍스트(.txt)
             </button>
-            <button className="block w-full rounded-lg px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => { onMd(); setOpen(false); }}>
+            <button className="block w-full rounded-lg px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { onMd(); setOpen(false); }}>
               마크다운(.md)
             </button>
           </div>

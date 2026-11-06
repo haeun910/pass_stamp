@@ -10,28 +10,43 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
   const shot = async n => p.screenshot({ path: `${S}/shots/${n}.png`, fullPage: true });
   const step = async (name, fn) => { try { await fn(); console.log('OK', name); } catch (e) { console.log('FAIL', name, e.message.split('\n')[0]); await shot('fail-' + name); } };
 
-  await p.goto('' + (process.env.BASE_URL || 'http://localhost:3000') + '/');
+  const BASE = process.env.BASE_URL || 'http://localhost:3000';
+  await step('landing', async () => {
+    await p.goto(BASE + '/'); await p.waitForTimeout(600);
+    await shot('00-landing');
+    await p.goto(BASE + '/pricing'); await p.waitForTimeout(300);
+    await shot('00b-pricing');
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.goto(BASE + '/'); await p.waitForTimeout(400);
+    await shot('00c-landing-mobile');
+    const sw = await p.evaluate(() => document.documentElement.scrollWidth);
+    if (sw > 390) throw new Error('landing mobile overflow ' + sw);
+    await p.setViewportSize({ width: 1400, height: 950 });
+    await p.click('header >> text=시작하기');
+    await p.waitForURL(/\/app$/);
+  });
+  await p.goto(BASE + '/app');
   await shot('01-home-empty');
   await step('profile import', async () => {
     await p.click('text=내 프로필');
-    await p.fill('textarea[placeholder^="또는 기존"]', '홍길동 이력서 ... ');
+    await p.fill('textarea[placeholder^="또는 이력서"]', '홍길동 이력서 ... ');
     await p.click('text=붙여넣은 글로 정리하기');
     await p.waitForSelector('text=이렇게 정리했어요');
     await p.click('text=기존 내용에 더하기');
     await shot('02-profile');
   });
   await step('new app', async () => {
-    await p.click('text=홈');
-    await p.click('text=+ 새 지원 회사');
+    await p.click('aside >> text=홈');
+    await p.click('main button:has-text("새 지원 회사")');
     await p.waitForURL(/apply/);
     await p.fill('input[placeholder="예: 토스"]', '토스');
     await p.fill('input[placeholder="예: 프론트엔드 개발자"]', '프론트엔드 개발자');
     await p.click('text=회사 조사 시작');
-    await p.waitForSelector('text=다음: 서류 작성 →', { timeout: 15000 });
+    await p.waitForSelector('button:has-text("서류 쓰러 가기") >> visible=true', { timeout: 15000 });
     await shot('03-research');
   });
   await step('docs write', async () => {
-    await p.click('text=다음: 서류 작성 →');
+    await p.click('button:has-text("서류 쓰러 가기") >> visible=true');
     await p.click('button:has-text("자기소개서")');
     await p.click('text=자기소개서 쓰기');
     await p.waitForSelector('text=문항별 글자 수', { timeout: 15000 });
@@ -48,8 +63,9 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await p.click('text=비교 닫기');
   });
   await step('evaluate', async () => {
-    await p.click('button:has-text("기준으로 평가받기"), button:has-text("다시 평가받기")');
-    await p.click('button:has-text("평가 받기")');
+    await p.click('button:has-text("기준으로 채점받기") >> visible=true');
+    await p.waitForURL(/tab=evaluate/);
+    await p.click('button:text-is("채점받기") >> visible=true');
     await p.waitForSelector('text=종합 점수', { timeout: 15000 });
     await p.waitForTimeout(800);
     await shot('05-evaluate');
@@ -58,8 +74,8 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await p.click('text=피드백 반영해 수정본 만들기');
     await p.waitForTimeout(3000);
     await shot('06-revised');
-    const v = await p.textContent('body');
-    if (!v.includes('평가 반영')) throw new Error('no 평가 반영 version');
+    const t = await p.innerText('main');
+    if (!t.includes('마지막 저장: 피드백 반영')) throw new Error('no 피드백 반영 version');
   });
   await step('interview', async () => {
     await p.click('nav >> text=면접 연습');

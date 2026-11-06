@@ -1,29 +1,32 @@
 "use client";
+import { Check, Copy, Square } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 export function Field({ label, hint, children, right }: { label: string; hint?: string; children: ReactNode; right?: ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <div className="flex items-end justify-between gap-2">
-        <label className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{label}</label>
-        {right}
-      </div>
+      {(label || right) && (
+        <div className="flex items-end justify-between gap-2">
+          {label && <label className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{label}</label>}
+          {right}
+        </div>
+      )}
       {children}
-      {hint && <p className="text-xs leading-relaxed text-zinc-500">{hint}</p>}
+      {hint && <p className="text-xs leading-relaxed text-slate-500">{hint}</p>}
     </div>
   );
 }
 
 export const inputCls =
-  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-lg border border-rule bg-sheet px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-brand-500 focus:ring-3 focus:ring-brand-500/15 disabled:bg-slate-50 disabled:text-slate-400 dark:text-slate-100 dark:hover:border-slate-600 dark:disabled:bg-slate-900";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "pen";
 const variants: Record<Variant, string> = {
-  primary: "bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm",
-  secondary:
-    "border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800",
-  ghost: "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
-  danger: "text-red-600 hover:bg-red-50 dark:hover:bg-red-950",
+  primary: "bg-brand-900 text-white hover:bg-brand-800 active:bg-brand-950 dark:bg-brand-200 dark:text-brand-950 dark:hover:bg-brand-100",
+  secondary: "border border-rule bg-sheet text-slate-800 hover:border-slate-300 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800",
+  ghost: "text-slate-600 hover:bg-slate-900/5 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
+  danger: "text-pen hover:bg-pen-soft",
+  pen: "bg-pen text-white hover:brightness-110",
 };
 
 export function Button({
@@ -32,18 +35,20 @@ export function Button({
   size = "md",
   className = "",
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm" | "md" }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm" | "md" | "lg" }) {
+  const sizes = { sm: "h-8 px-2.5 text-xs", md: "h-10 px-4 text-sm", lg: "h-12 px-6 text-[15px]" };
   return (
     <button
       type="button"
       {...props}
-      className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${size === "sm" ? "px-2.5 py-1.5 text-xs" : "px-4 py-2 text-sm"} ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 [&_svg]:size-4 ${sizes[size]} ${variants[variant]} ${className}`}
     >
       {children}
     </button>
   );
 }
 
+/** 작업 패널. 서류(종이)와 구분되도록 테두리만 가볍게. */
 export function Card({
   title,
   subtitle,
@@ -58,12 +63,12 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section className={`rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60 ${className}`}>
+    <section className={`rounded-xl border border-rule bg-sheet p-5 ${className}`}>
       {(title || actions) && (
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            {title && <h3 className="font-semibold">{title}</h3>}
-            {subtitle && <p className="mt-0.5 text-xs text-zinc-500">{subtitle}</p>}
+            {title && <h3 className="text-[15px] font-bold text-slate-900 dark:text-white">{title}</h3>}
+            {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
           </div>
           {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </div>
@@ -73,34 +78,46 @@ export function Card({
   );
 }
 
-export function Spinner({ className = "" }: { className?: string }) {
-  return <span aria-hidden className={`inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent ${className}`} />;
+/** 서류 한 장. 실제 제출 서류처럼 보이도록 종이 질감과 여백을 줘요. */
+export function Sheet({ children, className = "", header }: { children: ReactNode; className?: string; header?: ReactNode }) {
+  return (
+    <section className={`doc-sheet relative rounded-md bg-sheet shadow-[0_1px_0_var(--color-rule),0_12px_32px_-18px_rgba(27,42,74,0.35)] ring-1 ring-rule ${className}`}>
+      {header && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rule px-5 py-3 sm:px-8">{header}</div>}
+      <div className="px-5 py-6 sm:px-10 sm:py-9">{children}</div>
+    </section>
+  );
 }
 
-export function Empty({ children, icon }: { children: ReactNode; icon?: ReactNode }) {
+export function Spinner({ className = "" }: { className?: string }) {
+  return <span aria-hidden className={`inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent ${className}`} />;
+}
+
+export function Empty({ children, icon, title, action }: { children?: ReactNode; icon?: ReactNode; title?: string; action?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-zinc-300 px-6 py-10 text-center text-sm leading-relaxed text-zinc-500 dark:border-zinc-700">
-      {icon && <div className="mb-2 text-2xl">{icon}</div>}
-      {children}
+    <div className="flex flex-col items-center rounded-xl border border-dashed border-rule px-6 py-12 text-center">
+      {icon && <div className="mb-3 flex size-11 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 [&_svg]:size-5">{icon}</div>}
+      {title && <p className="font-semibold text-slate-900 dark:text-white">{title}</p>}
+      {children && <div className="mt-1 max-w-md text-sm leading-relaxed text-slate-500">{children}</div>}
+      {action && <div className="mt-5">{action}</div>}
     </div>
   );
 }
 
 const tones = {
-  zinc: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  indigo: "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
-  green: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  amber: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-  red: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
+  slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  brand: "bg-brand-50 text-brand-800 dark:bg-brand-950 dark:text-brand-200",
+  green: "bg-pass-soft text-pass",
+  amber: "bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  red: "bg-pen-soft text-pen",
 };
 export type Tone = keyof typeof tones;
 
-export function Badge({ children, tone = "zinc" }: { children: ReactNode; tone?: Tone }) {
-  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>;
+export function Badge({ children, tone = "slate" }: { children: ReactNode; tone?: Tone }) {
+  return <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${tones[tone]}`}>{children}</span>;
 }
 
 export function scoreTone(score: number | null | undefined): Tone {
-  if (score == null) return "zinc";
+  if (score == null) return "slate";
   if (score >= 80) return "green";
   if (score >= 60) return "amber";
   return "red";
@@ -118,7 +135,7 @@ export function Chips<T extends string | number>({
   render?: (v: T) => ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap gap-2" role="radiogroup">
+    <div className="flex flex-wrap gap-1.5" role="radiogroup">
       {options.map((o) => (
         <button
           type="button"
@@ -126,7 +143,7 @@ export function Chips<T extends string | number>({
           aria-checked={value === o}
           key={String(o)}
           onClick={() => onChange(o)}
-          className={`rounded-full border px-3 py-1 text-sm transition ${value === o ? "border-indigo-600 bg-indigo-600 text-white" : "border-zinc-300 bg-white hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"}`}
+          className={`h-9 rounded-lg border px-3 text-sm font-medium transition ${value === o ? "border-brand-900 bg-brand-900 text-white dark:border-brand-200 dark:bg-brand-200 dark:text-brand-950" : "border-rule bg-sheet text-slate-700 hover:border-slate-300 dark:text-slate-300"}`}
         >
           {render ? render(o) : o}
         </button>
@@ -151,19 +168,22 @@ export function AgentStatus({
 }) {
   if (!busy && !error && !notice) return null;
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" aria-live="polite">
       {busy && (
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-indigo-50 px-3 py-2 text-sm text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
-          <span className="flex min-w-0 items-center gap-2">
-            <Spinner className="shrink-0" />
-            <span className="truncate">{status || "작업 중"}…</span>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-sm text-brand-800 dark:border-brand-900 dark:bg-brand-950/60 dark:text-brand-200">
+          <span className="flex min-w-0 items-center gap-2.5">
+            <span className="relative flex size-2.5 shrink-0">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand-400 opacity-60 motion-reduce:animate-none" />
+              <span className="relative inline-flex size-2.5 rounded-full bg-brand-700 dark:bg-brand-300" />
+            </span>
+            <span className="truncate">{status || "작업 중"}</span>
           </span>
-          <button onClick={onStop} className="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900">
-            중지
+          <button onClick={onStop} className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold hover:bg-brand-100 dark:hover:bg-brand-900">
+            <Square className="size-3 fill-current" /> 중지
           </button>
         </div>
       )}
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/60 dark:text-red-300">{error}</p>}
+      {error && <p className="rounded-lg bg-pen-soft px-3 py-2 text-sm text-pen">{error}</p>}
       {notice && !busy && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">{notice}</p>}
     </div>
   );
@@ -184,15 +204,29 @@ export function CopyButton({ text, label = "복사" }: { text: string; label?: s
         } catch {}
       }}
     >
-      {done ? "복사됨" : label}
+      {done ? <Check /> : <Copy />}
+      {done ? "복사했어요" : label}
     </Button>
   );
 }
 
-export function ProgressBar({ value }: { value: number }) {
+export function ProgressBar({ value, tone = "brand" }: { value: number; tone?: "brand" | "pen" | "pass" }) {
+  const color = tone === "pen" ? "bg-pen" : tone === "pass" ? "bg-pass" : "bg-brand-700 dark:bg-brand-300";
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-      <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${Math.round(Math.min(1, Math.max(0, value)) * 100)}%` }} />
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.round(Math.min(1, Math.max(0, value)) * 100)}%` }} />
+    </div>
+  );
+}
+
+export function PageHeader({ title, description, actions }: { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="min-w-0">
+        <h1 className="font-serif text-[26px] font-bold leading-tight tracking-tight text-brand-900 dark:text-white">{title}</h1>
+        {description && <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-500">{description}</p>}
+      </div>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
   );
 }

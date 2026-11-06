@@ -1,4 +1,5 @@
 "use client";
+import { Search } from "lucide-react";
 import { useState } from "react";
 import { Markdown } from "@/components/Markdown";
 import { AgentStatus, Button, Card, CopyButton, Empty, Field, inputCls } from "@/components/ui";
@@ -58,7 +59,7 @@ export function ResearchPanel({ app, profile, goTab }: PanelProps) {
           <Button onClick={start} disabled={agent.busy || !app.company.trim() || urlInvalid} className="w-full">
             {app.companyProfile ? "다시 조사하기" : "회사 조사 시작"}
           </Button>
-          <p className="text-xs text-zinc-500">웹 검색과 정리에 1~3분 정도 걸려요. 다른 탭으로 옮겨도 계속 진행돼요.</p>
+          <p className="text-xs text-slate-500">웹 검색과 정리에 1~3분 정도 걸려요. 다른 탭으로 옮겨도 계속 진행돼요.</p>
         </div>
       </Card>
 
@@ -84,7 +85,7 @@ export function ResearchPanel({ app, profile, goTab }: PanelProps) {
             )
           ) : (
             !agent.busy && (
-              <Empty icon="🔎">
+              <Empty icon={<Search />} title="회사 프로필이 아직 없어요">
                 회사 이름을 넣고 조사를 시작하면 인재상, 최근 이슈, 직무 요건, 평가 기준이 담긴 회사 프로필을 만들어요.
                 <br />
                 서류 작성, 평가, 면접 에이전트가 모두 이 프로필을 기준으로 움직여요.
@@ -92,8 +93,8 @@ export function ResearchPanel({ app, profile, goTab }: PanelProps) {
             )
           )}
           {app.companyProfile && !agent.busy && (
-            <div className="flex justify-end border-t border-zinc-100 pt-3 dark:border-zinc-800">
-              <Button variant="secondary" onClick={() => goTab("docs")}>다음: 서류 작성 →</Button>
+            <div className="flex justify-end border-t border-slate-100 pt-3">
+              <Button variant="secondary" onClick={() => goTab("docs")}>서류 쓰러 가기</Button>
             </div>
           )}
         </div>

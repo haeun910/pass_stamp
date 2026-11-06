@@ -40,7 +40,7 @@ export interface DocVersion {
   id: string;
   content: string;
   at: number;
-  note: string; // "초안", "평가 반영", "직접 수정" 등
+  note: string; // "초안", "피드백 반영", "직접 수정" 등
 }
 
 export interface Evaluation {

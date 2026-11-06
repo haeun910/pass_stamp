@@ -11,7 +11,7 @@ export function appProgress(app: Application) {
   const steps = [
     { key: "research", label: "회사 리서치", done: !!app.companyProfile },
     { key: "docs", label: "서류 작성", done: docsWithContent.length > 0 },
-    { key: "evaluate", label: "회사 기준 평가", done: evals.length > 0 },
+    { key: "evaluate", label: "회사 기준 채점", done: evals.length > 0 },
     { key: "interview", label: "모의 면접", done: finished.length > 0 },
   ] as const;
   return {

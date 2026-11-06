@@ -1,6 +1,7 @@
 "use client";
+import { FileUp } from "lucide-react";
 import { useRef, useState } from "react";
-import { Button, Card, Field, ProgressBar, Spinner, inputCls } from "@/components/ui";
+import { Button, Card, Field, PageHeader, ProgressBar, Spinner, inputCls } from "@/components/ui";
 import { authHeaders } from "@/lib/client";
 import { useStore } from "@/lib/store";
 import { PROFILE_SECTIONS, Profile, profileFilled } from "@/lib/types";
@@ -11,40 +12,44 @@ export default function ProfilePage() {
   const filled = profileFilled(p);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">내 프로필</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          모든 에이전트가 이 내용을 바탕으로 서류를 쓰고 면접 질문을 만들어요. 여기에 없는 경험은 지어내지 않으니, 생각나는 대로 자세히 적을수록 좋아요.
-        </p>
-        <div className="mt-3 flex max-w-sm items-center gap-3 text-xs text-zinc-500">
-          <ProgressBar value={filled} />
-          <span className="shrink-0">완성도 {Math.round(filled * 100)}%</span>
+    <div className="space-y-8">
+      <PageHeader
+        title="내 프로필"
+        description="모든 에이전트가 이 내용으로 서류를 쓰고 면접 질문을 만들어요. 여기에 없는 경험은 지어내지 않으니, 생각나는 대로 자세히 적을수록 좋아요."
+        actions={
+          <div className="flex w-44 items-center gap-3 text-xs text-slate-500">
+            <ProgressBar value={filled} />
+            <span className="shrink-0 tabular-nums">{Math.round(filled * 100)}%</span>
+          </div>
+        }
+      />
+
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="lg:sticky lg:top-6 lg:order-2">
+          <ImportCard onImport={(next, mode) => setProfile(mode === "replace" ? next : fillEmpty(p, next))} />
         </div>
+
+        <Card title="프로필" subtitle="입력하는 즉시 이 브라우저에 저장돼요." className="lg:order-1">
+          <div className="grid gap-5 md:grid-cols-2">
+            {PROFILE_SECTIONS.map((s) => (
+              <div key={s.key} className={s.rows > 2 ? "md:col-span-2" : ""}>
+                <Field label={s.label} hint={s.hint || undefined}>
+                  {s.rows === 1 ? (
+                    <input className={inputCls} value={p[s.key]} onChange={(e) => setProfile({ [s.key]: e.target.value })} />
+                  ) : (
+                    <textarea
+                      className={`${inputCls} leading-relaxed`}
+                      style={{ minHeight: `${s.rows * 1.6 + 1}rem` }}
+                      value={p[s.key]}
+                      onChange={(e) => setProfile({ [s.key]: e.target.value })}
+                    />
+                  )}
+                </Field>
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
-
-      <ImportCard onImport={(next, mode) => setProfile(mode === "replace" ? next : fillEmpty(p, next))} />
-
-      <Card title="프로필" subtitle="입력하는 즉시 이 브라우저에 저장돼요.">
-        <div className="grid gap-5 md:grid-cols-2">
-          {PROFILE_SECTIONS.map((s) => (
-            <div key={s.key} className={s.rows > 2 ? "md:col-span-2" : ""}>
-              <Field label={s.label} hint={s.hint || undefined}>
-                {s.rows === 1 ? (
-                  <input className={inputCls} value={p[s.key]} onChange={(e) => setProfile({ [s.key]: e.target.value })} />
-                ) : (
-                  <textarea
-                    className={`${inputCls} leading-relaxed`}
-                    style={{ minHeight: `${s.rows * 1.6 + 1}rem` }}
-                    value={p[s.key]}
-                    onChange={(e) => setProfile({ [s.key]: e.target.value })}
-                  />
-                )}
-              </Field>
-            </div>
-          ))}
-        </div>
-      </Card>
     </div>
   );
 }
@@ -103,34 +108,31 @@ function ImportCard({ onImport }: { onImport: (p: Profile, mode: "merge" | "repl
   };
 
   return (
-    <Card title="기존 이력서로 채우기" subtitle="PDF, 텍스트 파일, 또는 붙여넣은 글에서 항목을 자동으로 나눠 드려요. 원문에 있는 내용만 옮겨요.">
+    <Card title="기존 이력서로 채우기" subtitle="PDF나 붙여넣은 글을 항목별로 나눠 드려요. 원문에 있는 내용만 옮겨요.">
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <input ref={fileRef} type="file" accept=".pdf,.txt,.md" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-          <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={busy}>
-            파일 올리기 (PDF, TXT)
-          </Button>
-        </div>
+        <input ref={fileRef} type="file" accept=".pdf,.txt,.md" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+        <Button variant="secondary" className="w-full" onClick={() => fileRef.current?.click()} disabled={busy}>
+          <FileUp />이력서 파일 올리기
+        </Button>
+        <p className="text-center text-xs text-slate-400">PDF, TXT · 10MB까지</p>
         <textarea
           className={`${inputCls} h-28`}
-          placeholder="또는 기존 이력서나 자소서 내용을 여기에 붙여넣으세요"
+          placeholder="또는 이력서나 자소서 내용을 여기에 붙여넣으세요"
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-        <div className="flex items-center gap-3">
-          <Button onClick={() => send({ kind: "text", text })} disabled={busy || !text.trim()}>
-            {busy ? <><Spinner /> 정리하는 중…</> : "붙여넣은 글로 정리하기"}
-          </Button>
-          {error && <span className="text-sm text-red-600">{error}</span>}
-        </div>
+        <Button className="w-full" onClick={() => send({ kind: "text", text })} disabled={busy || !text.trim()}>
+          {busy ? <><Spinner /> 정리하는 중…</> : "붙여넣은 글로 정리하기"}
+        </Button>
+        {error && <p className="text-sm text-pen">{error}</p>}
 
         {result && (
-          <div className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-900 dark:bg-indigo-950/30">
+          <div className="space-y-3 rounded-xl border border-brand-200 bg-brand-50/50 p-4 dark:border-brand-900 dark:bg-brand-950/30">
             <p className="text-sm font-medium">이렇게 정리했어요. 확인하고 반영해 주세요.</p>
-            <dl className="grid gap-2 text-sm md:grid-cols-2">
+            <dl className="grid gap-2 text-sm">
               {PROFILE_SECTIONS.filter((s) => result[s.key]?.trim()).map((s) => (
-                <div key={s.key} className="rounded-lg bg-white p-2.5 dark:bg-zinc-900">
-                  <dt className="text-xs font-semibold text-zinc-500">{s.label}</dt>
+                <div key={s.key} className="rounded-lg bg-sheet p-2.5">
+                  <dt className="text-xs font-semibold text-slate-500">{s.label}</dt>
                   <dd className="mt-1 line-clamp-4 whitespace-pre-wrap">{result[s.key]}</dd>
                 </div>
               ))}
@@ -144,7 +146,7 @@ function ImportCard({ onImport }: { onImport: (p: Profile, mode: "merge" | "repl
             </div>
           </div>
         )}
-        {applied && <p className="text-sm text-emerald-600">{applied}</p>}
+        {applied && <p className="text-sm text-pass">{applied}</p>}
       </div>
     </Card>
   );

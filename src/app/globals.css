@@ -2,13 +2,85 @@
 @plugin "@tailwindcss/typography";
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
+/*
+  합격도장 디자인 토큰
+  - 잉크(brand): 블루블랙 만년필 잉크. 글자, 주요 버튼, 선택 상태.
+  - 종이(paper/sheet): 차가운 흰 종이. 배경과 서류.
+  - 빨간펜(pen): 채점과 첨삭에만 써요. 점수 도장, 고칠 부분, 마감 임박.
+  - 합격(pass): 기준을 넘었을 때만.
+  - 형광펜(marker): 바뀐 부분 강조.
+*/
+@theme {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-serif: "Hahmlet Variable", "Noto Serif KR", "Nanum Myeongjo", serif;
+
+  --color-brand-50: #eef2fb;
+  --color-brand-100: #dce3f6;
+  --color-brand-200: #b9c7ec;
+  --color-brand-300: #8ea3dd;
+  --color-brand-400: #5f7bcb;
+  --color-brand-500: #3d5bb8;
+  --color-brand-600: #2b469e;
+  --color-brand-700: #23397f;
+  --color-brand-800: #1e3064;
+  --color-brand-900: #1b2a4a;
+  --color-brand-950: #111a30;
+
+  --color-paper: #f4f6f9;
+  --color-sheet: #ffffff;
+  --color-rule: #dde2ea;
+  --color-pen: #d23a2b;
+  --color-pen-soft: #fbe9e6;
+  --color-pass: #2e7d5b;
+  --color-pass-soft: #e5f2ec;
+  --color-marker: #ffe48a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #0e1422;
+    --color-sheet: #151c2c;
+    --color-rule: #283246;
+    --color-pen: #ff6b5c;
+    --color-pen-soft: #3a1c1a;
+    --color-pass: #5cc79a;
+    --color-pass-soft: #12302a;
+    --color-marker: #6b5a12;
+  }
+}
+
 :root { color-scheme: light dark; }
 
+html { -webkit-text-size-adjust: 100%; }
+
 body {
-  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  background: var(--color-paper);
+  font-family: var(--font-sans);
   word-break: keep-all;
   overflow-wrap: anywhere;
+  font-feature-settings: "ss06";
 }
+
+::selection { background: var(--color-marker); color: inherit; }
+
+:focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; }
+
+/* 서류 미리보기: 실제 제출 서류처럼 읽히도록 명조 계열 본문 */
+.doc-sheet .prose { font-family: var(--font-serif); font-size: 15px; line-height: 1.95; }
+.doc-sheet .prose h1, .doc-sheet .prose h2, .doc-sheet .prose h3, .doc-sheet .prose h4 { font-family: var(--font-serif); }
+
+/* 평가 리포트: 원문 인용은 빨간펜 물결 밑줄 */
+.review-marks .prose blockquote { border-left-color: var(--color-pen); background: var(--color-pen-soft); padding: 0.5rem 0.9rem; border-radius: 0 6px 6px 0; }
+.review-marks .prose blockquote p { text-decoration: underline wavy var(--color-pen); text-decoration-thickness: 1px; text-underline-offset: 5px; margin: 0; }
+.review-marks .prose blockquote p::before, .review-marks .prose blockquote p::after { content: none; }
+
+@keyframes stamp-in {
+  0% { transform: scale(1.6) rotate(var(--stamp-rot, -8deg)); opacity: 0; }
+  60% { transform: scale(0.94) rotate(var(--stamp-rot, -8deg)); opacity: 1; }
+  100% { transform: scale(1) rotate(var(--stamp-rot, -8deg)); opacity: 1; }
+}
+.stamp-animate { animation: stamp-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+@media (prefers-reduced-motion: reduce) { .stamp-animate { animation: none; } }
 
 @media print {
   .no-print { display: none !important; }

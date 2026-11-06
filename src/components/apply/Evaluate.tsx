@@ -1,5 +1,7 @@
 "use client";
+import { ClipboardCheck, FileText } from "lucide-react";
 import { useState } from "react";
+import { ScoreStamp } from "@/components/brand";
 import { Markdown } from "@/components/Markdown";
 import { AgentStatus, Badge, Button, Card, Empty, scoreTone } from "@/components/ui";
 import { docContext, useAgent } from "@/lib/client";
@@ -26,9 +28,8 @@ export function EvaluatePanel({
   if (!doc) {
     return (
       <Card>
-        <Empty icon="📋">
-          평가할 서류가 아직 없어요.
-          <div className="mt-4"><Button onClick={() => goTab("docs")}>서류 작성하러 가기</Button></div>
+        <Empty icon={<FileText />} title="채점할 서류가 없어요" action={<Button onClick={() => goTab("docs")}>서류 쓰러 가기</Button>}>
+          서류 탭에서 새로 쓰거나, 이미 쓴 자기소개서를 붙여넣으면 바로 채점할 수 있어요.
         </Empty>
       </Card>
     );
@@ -65,7 +66,7 @@ export function EvaluatePanel({
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
       <div className="space-y-5">
-        <Card title="평가할 서류">
+        <Card title="채점할 서류">
           <div className="space-y-1">
             {docs.map((d) => (
               <DocRow key={d.id} doc={d} active={d.id === doc.id} onClick={() => { setDocId(d.id); setViewId(null); }} />
@@ -80,8 +81,8 @@ export function EvaluatePanel({
       </div>
 
       <Card
-        title={`${app.company || "회사"} 기준 평가 · ${doc.title}`}
-        subtitle={shown ? `${formatDate(shown.at)} 평가${changedSince ? " · 이후 서류가 수정됐어요" : ""}` : undefined}
+        title={`${app.company || "회사"} 기준으로 본 ${doc.title}`}
+        subtitle={shown ? `${formatDate(shown.at)} 채점${changedSince ? ", 이후 서류를 고쳤어요" : ""}` : undefined}
         actions={
           !agent.busy && (
             <>
@@ -90,7 +91,7 @@ export function EvaluatePanel({
                   피드백 반영해 수정본 만들기
                 </Button>
               )}
-              <Button onClick={evaluate}>{evals.length ? "다시 평가" : "평가 받기"}</Button>
+              <Button onClick={evaluate}>{evals.length ? "다시 채점받기" : "채점받기"}</Button>
             </>
           )
         }
@@ -106,12 +107,17 @@ export function EvaluatePanel({
           {agent.busy ? (
             streaming ? <Markdown>{streaming}</Markdown> : null
           ) : shown ? (
-            <Markdown>{shown.content}</Markdown>
+            <div className="review-marks relative">
+              {shown.score != null && (
+                <div className="float-right mb-2 ml-4 mt-1">
+                  <ScoreStamp key={shown.id} score={shown.score} size={92} animate={shown.id === evals[evals.length - 1]?.id && Date.now() - shown.at < 8000} />
+                </div>
+              )}
+              <Markdown>{shown.content}</Markdown>
+            </div>
           ) : (
-            <Empty icon="🎯">
-              회사 프로필의 평가 기준과 직무 요건으로 실제 서류 심사처럼 채점해요.
-              <br />
-              고칠 문장은 원문과 수정안을 나란히 보여드리고, 수정본도 바로 만들 수 있어요.
+            <Empty icon={<ClipboardCheck />} title="아직 채점하지 않았어요" action={<Button onClick={evaluate}>채점받기</Button>}>
+              회사 프로필의 평가 기준과 직무 요건으로 실제 서류 심사처럼 채점해요. 고칠 문장은 원문과 수정안을 나란히 보여드려요.
             </Empty>
           )}
         </div>
@@ -125,31 +131,39 @@ function DocRow({ doc, active, onClick }: { doc: Doc; active: boolean; onClick: 
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition ${active ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
+      className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition ${active ? "bg-brand-50 font-semibold text-brand-900 dark:bg-brand-950 dark:text-brand-100" : "hover:bg-slate-100 dark:hover:bg-slate-800"}`}
     >
       <span className="truncate">{doc.title}</span>
-      {last ? <Badge tone={scoreTone(last.score)}>{last.score ?? "-"}점</Badge> : <span className="text-xs text-zinc-400">미평가</span>}
+      {last ? <Badge tone={scoreTone(last.score)}>{last.score ?? "-"}점</Badge> : <span className="text-xs text-slate-400">채점 전</span>}
     </button>
   );
 }
 
 function ScoreTrend({ evals, activeId, onPick }: { evals: Evaluation[]; activeId?: string; onPick: (id: string) => void }) {
+  const H = 96;
   return (
-    <div className="flex h-28 items-end gap-1.5">
-      {evals.map((e, i) => (
-        <button
-          key={e.id}
-          onClick={() => onPick(e.id)}
-          title={`${i + 1}회차 · ${e.score ?? "-"}점 · ${formatDate(e.at)}`}
-          className="group flex flex-1 flex-col items-center gap-1"
-        >
-          <span className="text-[10px] tabular-nums text-zinc-500">{e.score ?? "-"}</span>
-          <span
-            className={`w-full rounded-t-md transition ${e.id === activeId ? "bg-indigo-600" : "bg-indigo-200 group-hover:bg-indigo-400 dark:bg-indigo-900"}`}
-            style={{ height: `${Math.max(6, ((e.score ?? 0) / 100) * 80)}px` }}
-          />
-        </button>
-      ))}
+    <div className="relative pt-4">
+      {/* 합격권 기준선 (80점) */}
+      <div className="pointer-events-none absolute inset-x-0 border-t border-dashed border-pass/60" style={{ bottom: (80 / 100) * H + 18 }} aria-hidden>
+        <span className="absolute -top-4 right-0 text-[10px] font-semibold text-pass">합격권 80</span>
+      </div>
+      <div className="flex items-end gap-1.5" style={{ height: H + 18 }}>
+        {evals.map((e, i) => (
+          <button
+            key={e.id}
+            onClick={() => onPick(e.id)}
+            title={`${i + 1}회차 ${e.score ?? "-"}점 (${formatDate(e.at)})`}
+            aria-label={`${i + 1}회차 ${e.score ?? "-"}점`}
+            className="group flex flex-1 flex-col items-center justify-end gap-1"
+          >
+            <span className={`text-[10px] tabular-nums ${e.id === activeId ? "font-bold text-brand-900 dark:text-white" : "text-slate-500"}`}>{e.score ?? "-"}</span>
+            <span
+              className={`w-full max-w-8 rounded-t transition ${e.id === activeId ? ((e.score ?? 0) >= 80 ? "bg-pass" : "bg-pen") : "bg-slate-300 group-hover:bg-slate-400 dark:bg-slate-700"}`}
+              style={{ height: Math.max(4, ((e.score ?? 0) / 100) * H) }}
+            />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

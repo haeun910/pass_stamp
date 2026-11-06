@@ -1,5 +1,7 @@
 "use client";
+import { ChevronLeft, Lightbulb, Mic, MicOff } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ScoreStamp } from "@/components/brand";
 import { Markdown } from "@/components/Markdown";
 import { AgentStatus, Badge, Button, Card, Chips, CopyButton, Empty, Field, inputCls, scoreTone } from "@/components/ui";
 import { baseContext, settingsText, submittedDocs, useAgent } from "@/lib/client";
@@ -20,7 +22,7 @@ export function InterviewPanel(props: PanelProps) {
   const [view, setView] = useState<"practice" | "questions">("practice");
   return (
     <div className="space-y-5">
-      <div className="flex gap-1 rounded-xl bg-zinc-100 p-1 sm:w-fit dark:bg-zinc-800/60">
+      <div className="flex gap-1 rounded-xl bg-slate-900/5 p-1 sm:w-fit dark:bg-white/5">
         {(
           [
             ["practice", "모의 면접"],
@@ -30,7 +32,7 @@ export function InterviewPanel(props: PanelProps) {
           <button
             key={k}
             onClick={() => setView(k)}
-            className={`flex-1 rounded-lg px-4 py-1.5 text-sm transition sm:flex-none ${view === k ? "bg-white font-medium shadow-sm dark:bg-zinc-900" : "text-zinc-600 dark:text-zinc-400"}`}
+            className={`flex-1 rounded-lg px-4 py-1.5 text-sm transition sm:flex-none ${view === k ? "bg-sheet font-medium shadow-sm" : "text-slate-600 dark:text-slate-400"}`}
           >
             {label}
           </button>
@@ -80,10 +82,10 @@ function QuestionBank({ app, profile, goTab }: PanelProps) {
           <Markdown>{app.questionBank}</Markdown>
         ) : (
           !agent.busy && (
-            <Empty icon="💡">
+            <Empty icon={<Lightbulb />} title="예상 질문을 뽑아 볼까요?">
               꼭 나올 질문, 서류 검증 질문, 직무 질문, 압박 질문까지 20개 남짓을 질문 의도와 답변 재료와 함께 정리해 드려요.
               {!app.docs.some((d) => d.content.trim()) && (
-                <span className="mt-2 block text-amber-600">
+                <span className="mt-2 block text-amber-700 dark:text-amber-400">
                   서류를 먼저 쓰면 서류 내용을 파고드는 질문까지 뽑을 수 있어요.{" "}
                   <button className="underline" onClick={() => goTab("docs")}>서류 쓰러 가기</button>
                 </span>
@@ -164,19 +166,19 @@ function Practice({ app, profile, goTab }: PanelProps) {
         </div>
       </Card>
 
-      <Card title={`면접 기록 · ${past.length}`}>
+      <Card title="지난 면접" subtitle={past.length ? `${past.length}회 연습했어요` : undefined}>
         {past.length === 0 ? (
-          <p className="text-sm text-zinc-500">아직 연습한 면접이 없어요.</p>
+          <p className="text-sm text-slate-500">아직 연습한 면접이 없어요.</p>
         ) : (
           <ul className="space-y-1.5">
             {past.map((s) => {
               const answered = s.messages.filter((m) => m.role === "user" && m.content !== OPENING).length;
               return (
                 <li key={s.id}>
-                  <button onClick={() => setActiveId(s.id)} className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  <button onClick={() => setActiveId(s.id)} className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-900/5 dark:hover:bg-white/5">
                     <span className="min-w-0">
                       <span className="block truncate">{s.settings.mode} · {s.settings.difficulty}</span>
-                      <span className="text-xs text-zinc-500">{formatDate(s.startedAt)} · 답변 {answered}개</span>
+                      <span className="text-xs text-slate-500">{formatDate(s.startedAt)} · 답변 {answered}개</span>
                     </span>
                     {s.report ? <Badge tone={scoreTone(s.score)}>{s.score ?? "-"}점</Badge> : <Badge>진행 중</Badge>}
                   </button>
@@ -302,10 +304,10 @@ function Session({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => { speech.cancelSpeak(); agent.stop(); onClose(); }}>← 면접 목록</Button>
-          <Badge tone="indigo">{s.mode}</Badge>
+          <Button variant="ghost" size="sm" onClick={() => { speech.cancelSpeak(); agent.stop(); onClose(); }}><ChevronLeft />면접 목록</Button>
+          <Badge tone="brand">{s.mode}</Badge>
           <Badge>{s.difficulty}</Badge>
-          {!finished && <span className="text-sm text-zinc-500">질문 {Math.min(qNow, s.questionCount)} / {s.questionCount}</span>}
+          {!finished && <span className="text-sm text-slate-500">질문 {Math.min(qNow, s.questionCount)} / {s.questionCount}</span>}
         </div>
         {!finished && answeredCount > 0 && (
           <Button variant={interviewerDone ? "primary" : "secondary"} onClick={finish} disabled={agent.busy}>
@@ -320,8 +322,13 @@ function Session({
           subtitle={session.endedAt ? formatDate(session.endedAt) : undefined}
           actions={session.report && !report.busy && <CopyButton text={session.report} />}
         >
-          <div className="space-y-3">
+          <div className="review-marks space-y-3">
             <AgentStatus {...report} onStop={report.stop} />
+            {session.score != null && !report.busy && (
+              <div className="float-right mb-2 ml-4">
+                <ScoreStamp score={session.score} label="면접" animate={!!session.endedAt && Date.now() - session.endedAt < 8000} />
+              </div>
+            )}
             {session.report && <Markdown>{session.report}</Markdown>}
           </div>
         </Card>
@@ -343,20 +350,20 @@ function Session({
               {msgs.slice(1).map((m, i) =>
                 m.role === "assistant" ? (
                   <div key={i} className="flex gap-3">
-                    <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">면접관</div>
-                    <div className="min-w-0 rounded-2xl rounded-tl-sm bg-zinc-100 px-4 py-3 dark:bg-zinc-800">
-                      {m.content ? <Markdown>{m.content}</Markdown> : <span className="text-sm text-zinc-500">{agent.status || "질문 준비 중"}…</span>}
+                    <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-900 text-[11px] font-semibold text-white dark:bg-brand-200 dark:text-brand-950">면접관</div>
+                    <div className="min-w-0 rounded-xl rounded-tl-sm border border-rule bg-paper px-4 py-3">
+                      {m.content ? <Markdown>{m.content}</Markdown> : <span className="text-sm text-slate-500">{agent.status || "질문 준비 중"}…</span>}
                       {m.content && s.voice && !agent.busy && (
-                        <button className="mt-1 text-xs text-zinc-500 hover:text-indigo-600" onClick={() => speech.speak(stripMarkdown(m.content))}>다시 듣기</button>
+                        <button className="mt-1 text-xs text-slate-500 hover:text-brand-900 dark:hover:text-white" onClick={() => speech.speak(stripMarkdown(m.content))}>다시 듣기</button>
                       )}
                     </div>
                   </div>
                 ) : (
                   <div key={i} className="flex flex-col items-end gap-1">
-                    <div className={`max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-sm px-4 py-3 text-sm ${m.content === TIMEOUT_TEXT ? "bg-zinc-200 text-zinc-500 dark:bg-zinc-700" : "bg-indigo-600 text-white"}`}>
+                    <div className={`max-w-[85%] whitespace-pre-wrap rounded-xl rounded-tr-sm px-4 py-3 text-sm ${m.content === TIMEOUT_TEXT ? "bg-slate-200 text-slate-500 dark:bg-slate-700" : "bg-brand-50 text-slate-900 ring-1 ring-brand-100 dark:bg-brand-950/60 dark:text-slate-100 dark:ring-brand-900"}`}>
                       {m.content}
                     </div>
-                    {m.seconds != null && <span className="text-[11px] text-zinc-400">{m.seconds}초 · {m.content.length}자</span>}
+                    {m.seconds != null && <span className="text-[11px] text-slate-400">{m.seconds}초 · {m.content.length}자</span>}
                   </div>
                 ),
               )}
@@ -371,22 +378,22 @@ function Session({
             )}
 
             {interviewerDone && !finished && (
-              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+              <p className="rounded-lg bg-pass-soft px-3 py-2 text-sm text-pass">
                 면접관이 면접을 마쳤어요. 위의 &quot;면접 종료하고 피드백 받기&quot;를 눌러 질문별 피드백을 받아 보세요.
               </p>
             )}
 
             {!finished && !interviewerDone && (
-              <div className="space-y-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+              <div className="space-y-2 border-t border-rule pt-4">
                 {s.answerSeconds > 0 && waitingAnswer && remaining != null && (
-                  <div className="flex items-center gap-3 text-xs text-zinc-500">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                  <div className="flex items-center gap-3 text-xs text-slate-500">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
                       <div
-                        className={`h-full rounded-full transition-all duration-1000 ease-linear ${remaining <= 10 ? "bg-red-500" : "bg-indigo-500"}`}
+                        className={`h-full rounded-full transition-all duration-1000 ease-linear ${remaining <= 10 ? "bg-pen" : "bg-brand-900 dark:bg-brand-300"}`}
                         style={{ width: `${(remaining / s.answerSeconds) * 100}%` }}
                       />
                     </div>
-                    <span className={`tabular-nums ${remaining <= 10 ? "font-semibold text-red-600" : ""}`}>{remaining}초</span>
+                    <span className={`tabular-nums ${remaining <= 10 ? "font-semibold text-pen" : ""}`}>{remaining}초</span>
                   </div>
                 )}
                 <textarea
@@ -407,12 +414,12 @@ function Session({
                         size="sm"
                         disabled={!waitingAnswer}
                         onClick={() => (speech.listening ? speech.stopListen() : speech.listen())}
-                        className={speech.listening ? "border border-red-300" : ""}
+                        className={speech.listening ? "ring-1 ring-pen/40" : ""}
                       >
-                        {speech.listening ? "● 듣는 중 (누르면 멈춤)" : "🎤 말로 답하기"}
+                        {speech.listening ? <><MicOff /> 듣는 중, 누르면 멈춰요</> : <><Mic /> 말로 답하기</>}
                       </Button>
                     )}
-                    <span className="text-xs text-zinc-400">{input.length}자</span>
+                    <span className="text-xs text-slate-400">{input.length}자</span>
                   </div>
                   <Button onClick={() => submit(input.trim())} disabled={!waitingAnswer || !input.trim()}>답변 제출</Button>
                 </div>
@@ -420,7 +427,7 @@ function Session({
             )}
           </div>
         ) : (
-          <p className="text-sm text-zinc-500">질문과 답변 {msgs.length - 1}개</p>
+          <p className="text-sm text-slate-500">질문과 답변 {msgs.length - 1}개</p>
         )}
       </Card>
     </div>
@@ -431,11 +438,11 @@ function VoiceToggle({ value, onChange }: { value: boolean; onChange: (v: boolea
   const [supported, setSupported] = useState(true);
   useEffect(() => setSupported(speechSupported()), []);
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
-      <input type="checkbox" className="mt-0.5 h-4 w-4 accent-indigo-600" checked={value} onChange={(e) => onChange(e.target.checked)} />
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-rule p-3">
+      <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-900" checked={value} onChange={(e) => onChange(e.target.checked)} />
       <span className="text-sm">
         <span className="font-medium">음성 면접</span>
-        <span className="block text-xs text-zinc-500">
+        <span className="block text-xs text-slate-500">
           면접관 질문을 소리로 읽어 주고, 마이크로 답할 수 있어요.
           {!supported && " 이 브라우저는 음성 인식을 지원하지 않아 읽어주기만 돼요. 크롬이나 엣지를 권장해요."}
         </span>
