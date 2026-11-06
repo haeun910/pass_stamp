@@ -1,0 +1,214 @@
+"use client";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AppData,
+  Application,
+  Doc,
+  InterviewSession,
+  Profile,
+  emptyProfile,
+  newApplication,
+  newDoc,
+  uid,
+  DocType,
+} from "./types";
+
+const KEY = "online-interviewer:v2";
+const LEGACY_KEY = "online-interviewer:v1";
+
+function emptyData(): AppData {
+  return { version: 2, profile: emptyProfile(), applications: [] };
+}
+
+/** v1(단일 서류, 텍스트 경험) 데이터를 v2 구조로 옮겨요. */
+function migrateLegacy(raw: string): AppData | null {
+  try {
+    const old = JSON.parse(raw) as {
+      myExperience?: string;
+      applications?: {
+        company?: string;
+        role?: string;
+        jobPosting?: string;
+        companyProfile?: string;
+        docType?: string;
+        docRequest?: string;
+        document?: string;
+        evaluation?: string;
+        interviewMode?: string;
+        interview?: { role: "user" | "assistant"; content: string }[];
+        createdAt?: number;
+      }[];
+    };
+    const data = emptyData();
+    data.profile.experience = old.myExperience ?? "";
+    for (const o of old.applications ?? []) {
+      if (!o.company && !o.document && !o.companyProfile) continue;
+      const app = newApplication();
+      Object.assign(app, {
+        company: o.company ?? "",
+        role: o.role ?? "",
+        jobPosting: o.jobPosting ?? "",
+        companyProfile: o.companyProfile ?? "",
+        researchedAt: o.companyProfile ? Date.now() : null,
+        createdAt: o.createdAt ?? Date.now(),
+      });
+      if (o.document?.trim()) {
+        const type = (["자기소개서", "이력서", "포트폴리오"].includes(o.docType ?? "") ? o.docType : "자기소개서") as DocType;
+        const d = newDoc(type);
+        d.questions = [];
+        d.request = o.docRequest ?? "";
+        d.content = o.document;
+        const v = { id: uid(), content: o.document, at: Date.now(), note: "이전 버전에서 가져옴" };
+        d.versions = [v];
+        if (o.evaluation) d.evaluations = [{ id: uid(), versionId: v.id, content: o.evaluation, score: null, at: Date.now() }];
+        app.docs = [d];
+      }
+      if (o.interview?.length) {
+        app.interviews = [
+          {
+            id: uid(),
+            settings: { mode: o.interviewMode ?? "직무 + 인성 종합", questionCount: 7, difficulty: "기본", answerSeconds: 0, voice: false },
+            messages: o.interview,
+            report: "",
+            score: null,
+            startedAt: Date.now(),
+            endedAt: null,
+          },
+        ];
+      }
+      data.applications.push(app);
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function load(): AppData {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as AppData;
+      if (parsed?.version === 2) return { ...emptyData(), ...parsed, profile: { ...emptyProfile(), ...parsed.profile } };
+    }
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (legacy) {
+      const migrated = migrateLegacy(legacy);
+      if (migrated) return migrated;
+    }
+  } catch {}
+  return emptyData();
+}
+
+interface Store {
+  ready: boolean;
+  data: AppData;
+  saveError: boolean;
+  setProfile: (patch: Partial<Profile>) => void;
+  createApp: () => string;
+  deleteApp: (id: string) => void;
+  updateApp: (id: string, patch: Partial<Application> | ((a: Application) => Partial<Application>)) => void;
+  addDoc: (appId: string, type: DocType) => string;
+  updateDoc: (appId: string, docId: string, patch: Partial<Doc> | ((d: Doc) => Partial<Doc>)) => void;
+  deleteDoc: (appId: string, docId: string) => void;
+  updateInterview: (
+    appId: string,
+    sessionId: string,
+    patch: Partial<InterviewSession> | ((s: InterviewSession) => Partial<InterviewSession>),
+  ) => void;
+  replaceAll: (data: AppData) => void;
+}
+
+const Ctx = createContext<Store | null>(null);
+
+export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const [data, setData] = useState<AppData>(emptyData);
+  const [ready, setReady] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setData(load());
+    setReady(true);
+  }, []);
+
+  // 스트리밍 중에는 매 토큰마다 저장하지 않도록 잠깐 모아서 저장해요.
+  useEffect(() => {
+    if (!ready) return;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      try {
+        localStorage.setItem(KEY, JSON.stringify(data));
+        setSaveError(false);
+      } catch {
+        setSaveError(true);
+      }
+    }, 400);
+  }, [data, ready]);
+
+  // 다른 탭에서 바뀐 내용도 반영해요.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === KEY && e.newValue) {
+        try {
+          setData(JSON.parse(e.newValue));
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const mapApp = useCallback((id: string, fn: (a: Application) => Application) => {
+    setData((d) => ({ ...d, applications: d.applications.map((a) => (a.id === id ? { ...fn(a), updatedAt: Date.now() } : a)) }));
+  }, []);
+
+  const store = useMemo<Store>(
+    () => ({
+      ready,
+      data,
+      saveError,
+      setProfile: (patch) => setData((d) => ({ ...d, profile: { ...d.profile, ...patch } })),
+      createApp: () => {
+        const app = newApplication();
+        setData((d) => ({ ...d, applications: [app, ...d.applications] }));
+        return app.id;
+      },
+      deleteApp: (id) => setData((d) => ({ ...d, applications: d.applications.filter((a) => a.id !== id) })),
+      updateApp: (id, patch) => mapApp(id, (a) => ({ ...a, ...(typeof patch === "function" ? patch(a) : patch) })),
+      addDoc: (appId, type) => {
+        const doc = newDoc(type);
+        mapApp(appId, (a) => ({ ...a, docs: [...a.docs, doc] }));
+        return doc.id;
+      },
+      updateDoc: (appId, docId, patch) =>
+        mapApp(appId, (a) => ({
+          ...a,
+          docs: a.docs.map((d) =>
+            d.id === docId ? { ...d, ...(typeof patch === "function" ? patch(d) : patch), updatedAt: Date.now() } : d,
+          ),
+        })),
+      deleteDoc: (appId, docId) => mapApp(appId, (a) => ({ ...a, docs: a.docs.filter((d) => d.id !== docId) })),
+      updateInterview: (appId, sessionId, patch) =>
+        mapApp(appId, (a) => ({
+          ...a,
+          interviews: a.interviews.map((s) => (s.id === sessionId ? { ...s, ...(typeof patch === "function" ? patch(s) : patch) } : s)),
+        })),
+      replaceAll: (next) => setData({ ...emptyData(), ...next, profile: { ...emptyProfile(), ...next.profile } }),
+    }),
+    [ready, data, saveError, mapApp],
+  );
+
+  return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
+}
+
+export function useStore(): Store {
+  const s = useContext(Ctx);
+  if (!s) throw new Error("StoreProvider가 필요해요");
+  return s;
+}
+
+export function useApp(id: string) {
+  const { data } = useStore();
+  return data.applications.find((a) => a.id === id) ?? null;
+}
