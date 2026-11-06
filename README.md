@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 온라인 면접관
 
-## Getting Started
+회사 리서치부터 맞춤 서류 작성, 회사 기준 평가, 모의 면접까지 한 사이트에서 하는 AI 취업 준비 서비스예요.
 
-First, run the development server:
+## 에이전트
+
+| 단계 | 에이전트 | 하는 일 |
+|---|---|---|
+| 1 | 회사 리서치 | 웹 검색으로 회사 개요, 인재상, 최근 이슈, 직무 요건, 평가 기준을 정리한 "회사 프로필"을 만들어요. |
+| 2 | 서류 작성 | 내 경험과 회사 프로필로 자기소개서, 이력서, 포트폴리오 구성안을 써요. 없는 경험은 지어내지 않고 [ ]로 비워둬요. |
+| 3 | 회사 기준 평가 | 회사 프로필의 평가 기준으로 서류를 100점 만점으로 채점하고 개선안을 줘요. |
+| 4 | 모의 면접 | 회사와 서류를 바탕으로 한 질문씩, 꼬리질문까지 하는 면접을 진행하고 끝나면 질문별 피드백을 줘요. |
+
+모든 에이전트는 같은 회사 프로필과 서류를 공유해요. 데이터는 로그인 없이 브라우저(localStorage)에 저장돼요.
+
+## 구조
+
+- `src/lib/agents.ts`: 에이전트별 시스템 프롬프트, effort, 도구 설정
+- `src/app/api/agent/route.ts`: Claude API(`claude-opus-5-5`) 호출, 스트리밍 응답, 리서치용 웹 검색
+- `src/lib/store.ts`: 지원 건 목록과 내 경험을 브라우저에 저장
+- `src/components/Steps.tsx`: 4단계 화면
+
+## 실행
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local   # ANTHROPIC_API_KEY 입력
+npm install
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Vercel에 배포할 때는 환경 변수 `ANTHROPIC_API_KEY`만 넣으면 돼요.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 다음 할 일
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 음성 모의 면접
+- 서류 PDF/Word 내보내기
+- 로그인과 Supabase 저장 (기기 간 동기화)
