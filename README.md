@@ -50,7 +50,7 @@ npm run dev                  # http://localhost:3000
 |---|---|---|
 | `ANTHROPIC_API_KEY` | 예 | Claude API 키 |
 | `APP_ACCESS_CODE` | 권장 | 로그인이 없으니 공개 배포 시 이 코드를 아는 사람만 쓰게 해요. 사용자는 설정 화면에서 입력해요. |
-| `RATE_LIMIT_PER_HOUR` | 아니오 | IP당 시간당 요청 수 (기본 200, 0이면 끔) |
+| `RATE_LIMIT_PER_HOUR` | 아니오 | IP당 시간당 요청 수 (기본 60, 0이면 끔). 서버 인스턴스마다 따로 세는 메모리 방식이라 느슨한 장치예요. IP는 Vercel이 넣는 `x-real-ip`를 믿으니, 다른 곳에 올리면 프록시 설정을 확인하세요. |
 | `CLAUDE_MODEL` | 아니오 | 모델 변경 (기본 `claude-opus-5-5`) |
 
 이력서 PDF 가져오기는 Vercel 함수의 요청 크기 한도(4.5MB) 때문에 3MB까지 받아요.

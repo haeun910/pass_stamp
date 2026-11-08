@@ -14,7 +14,10 @@ export default function SettingsPage() {
   const [msg, setMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const size = new Blob([JSON.stringify(data)]).size;
+  // 브라우저 저장 공간은 보통 5MB 안팎이에요 (UTF-16 기준). 그 전에 미리 알려요.
+  const size = JSON.stringify(data).length * 2;
+  const STORAGE_LIMIT = 5 * 1024 * 1024;
+  const usage = Math.min(1, size / STORAGE_LIMIT);
 
   const importFile = async (f: File | undefined) => {
     if (!f) return;
@@ -65,7 +68,7 @@ export default function SettingsPage() {
               ["지원 회사", `${data.applications.length}곳`],
               ["서류", `${data.applications.reduce((n, a) => n + a.docs.length, 0)}개`],
               ["면접 연습", `${data.applications.reduce((n, a) => n + a.interviews.length, 0)}회`],
-              ["용량", `${(size / 1024).toFixed(0)}KB`],
+              ["저장 공간", `${(size / 1024).toFixed(0)}KB / 약 5MB`],
             ].map(([k, v]) => (
               <div key={k} className="rounded-lg bg-slate-900/[0.03] px-3 py-2.5 dark:bg-white/5">
                 <dt className="text-xs text-slate-500">{k}</dt>
@@ -73,6 +76,12 @@ export default function SettingsPage() {
               </div>
             ))}
           </dl>
+          {usage >= 0.7 && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
+              저장 공간을 {Math.round(usage * 100)}% 썼어요. 백업을 내려받고 끝난 지원 회사를 지워 주세요. 가득 차면 새 내용이 저장되지 않아요.
+            </p>
+          )}
+          <p className="text-xs text-slate-500">백업 파일에는 프로필과 서류가 그대로 들어 있으니 안전한 곳에 보관해 주세요. 공용 PC에서 썼다면 아래에서 모든 데이터를 지워 주세요.</p>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => downloadText(`${SITE.name}-백업-${todayStringSafe()}.json`, JSON.stringify(data, null, 2), "application/json")}>
               백업 내려받기

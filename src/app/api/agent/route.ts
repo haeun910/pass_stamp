@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AGENTS, AGENT_IDS, AgentContext, AgentId, CONTEXT_LABELS, buildContextBlock } from "@/lib/agents";
 import { LIMITS } from "@/lib/limits";
+import { maskSensitive } from "@/lib/privacy";
 import { MODEL, friendlyError, guard, isMock } from "@/lib/server/guard";
 import { mockStream } from "@/lib/server/mock";
 
@@ -62,15 +63,17 @@ export async function POST(req: Request) {
   if (invalid) return Response.json({ error: invalid }, { status: 400 });
 
   const agent = AGENTS[body.agent];
+  // 주민등록번호 같은 식별번호는 서비스에 필요 없으니 모델로 보내기 전에 가려요 (브라우저에서도 한 번 가리지만 서버에서 다시 확인해요).
+  const context: AgentContext = Object.fromEntries(Object.entries(body.context ?? {}).map(([k, v]) => [k, maskSensitive(v as string)]));
   const messages: Anthropic.Beta.BetaMessageParam[] =
     body.messages && body.messages.length > 0
-      ? body.messages.map((m) => ({ role: m.role, content: m.content }))
-      : [{ role: "user", content: body.instruction?.trim() || "시작해 주세요." }];
+      ? body.messages.map((m) => ({ role: m.role, content: maskSensitive(m.content) }))
+      : [{ role: "user", content: maskSensitive(body.instruction?.trim() || "시작해 주세요.") }];
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   const lastUserText = typeof lastUser?.content === "string" ? lastUser.content : "";
 
   const tools: Anthropic.Beta.BetaToolUnion[] = [];
-  if (agent.tools?.includes("web_search")) tools.push({ type: "web_search_20260209", name: "web_search", max_uses: 10 });
+  if (agent.tools?.includes("web_search")) tools.push({ type: "web_search_20260209", name: "web_search", max_uses: 8 });
   if (agent.tools?.includes("web_fetch")) tools.push({ type: "web_fetch_20260209", name: "web_fetch", max_uses: 5 });
 
   const encoder = new TextEncoder();
@@ -92,7 +95,8 @@ export async function POST(req: Request) {
 
         const client = new Anthropic();
         // 리서치처럼 서버 도구를 오래 쓰면 pause_turn으로 끊길 수 있어 몇 번 이어서 요청해요.
-        for (let round = 0; round < 6; round++) {
+        // 이어 요청할 때마다 검색 한도(max_uses)가 새로 적용되니, 비용 상한을 위해 3번까지만 이어요.
+        for (let round = 0; round < 3; round++) {
           const s = client.beta.messages.stream(
             {
               model: MODEL,
@@ -103,7 +107,7 @@ export async function POST(req: Request) {
               cache_control: { type: "ephemeral" },
               system: [
                 { type: "text", text: agent.system },
-                { type: "text", text: buildContextBlock(body.context ?? {}) },
+                { type: "text", text: buildContextBlock(context) },
               ],
               messages,
               ...(tools.length ? { tools } : {}),

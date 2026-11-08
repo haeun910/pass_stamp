@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentContext, AgentId } from "./agents";
 import { LIMITS } from "./limits";
+import { maskSensitive } from "./privacy";
 import type { Application, ChatMessage, Doc, InterviewSettings, Profile } from "./types";
 import { profileToText } from "./types";
 
@@ -51,8 +52,10 @@ export function baseContext(app: Application, profile: Profile): AgentContext {
 }
 
 export function docContext(app: Application, profile: Profile, doc: Doc): AgentContext {
+  const needsContact = doc.type === "이력서" || doc.type === "경력기술서";
   return {
     ...baseContext(app, profile),
+    profile: profileToText(profile, { includeContact: needsContact }),
     docType: doc.type,
     docQuestions: doc.type === "자기소개서" ? docQuestionsText(doc) : "",
     docRequest: doc.request,
@@ -93,9 +96,10 @@ function clipContext(ctx: AgentContext): { context: AgentContext; tooLong: keyof
   const out: AgentContext = {};
   for (const [k, v] of Object.entries(ctx) as [keyof AgentContext, string | undefined][]) {
     if (typeof v !== "string") continue;
-    if (v.length <= LIMITS.contextField) out[k] = v;
+    const masked = maskSensitive(v);
+    if (masked.length <= LIMITS.contextField) out[k] = masked;
     else if (NO_CLIP.includes(k)) return { context: out, tooLong: k };
-    else out[k] = v.slice(0, LIMITS.contextField - CLIP_NOTE.length) + CLIP_NOTE;
+    else out[k] = masked.slice(0, LIMITS.contextField - CLIP_NOTE.length) + CLIP_NOTE;
   }
   return { context: out, tooLong: null };
 }
@@ -142,7 +146,7 @@ export function useAgent() {
             agent,
             context: clipped.context,
             instruction: opts.instruction,
-            messages: opts.messages?.map(({ role, content }) => ({ role, content })),
+            messages: opts.messages?.map(({ role, content }) => ({ role, content: maskSensitive(content) })),
           }),
           signal: ac.signal,
         });

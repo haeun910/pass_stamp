@@ -4,12 +4,14 @@ import { useRef, useState } from "react";
 import { Button, Card, Field, PageHeader, ProgressBar, Spinner, inputCls } from "@/components/ui";
 import { authHeaders } from "@/lib/client";
 import { useStore } from "@/lib/store";
+import { findSensitive } from "@/lib/privacy";
 import { PROFILE_SECTIONS, Profile, profileFilled } from "@/lib/types";
 
 export default function ProfilePage() {
   const { data, setProfile } = useStore();
   const p = data.profile;
   const filled = profileFilled(p);
+  const sensitive = findSensitive(Object.values(p).join("\n"));
 
   return (
     <div className="space-y-8">
@@ -29,7 +31,12 @@ export default function ProfilePage() {
           <ImportCard onImport={(next, mode) => setProfile(mode === "replace" ? next : fillEmpty(p, next))} />
         </div>
 
-        <Card title="프로필" subtitle="입력하는 즉시 이 브라우저에 저장돼요." className="lg:order-1">
+        <Card title="프로필" subtitle="입력하는 즉시 이 브라우저에 저장돼요. 주민등록번호, 계좌번호 같은 번호는 적지 마세요. 서류에 필요 없어요." className="lg:order-1">
+          {sensitive.length > 0 && (
+            <p className="mb-4 rounded-lg bg-pen-soft px-3 py-2 text-sm text-pen" role="alert">
+              {sensitive.join(", ")}로 보이는 번호가 있어요. 서버로 보낼 때는 가려지지만, 이 브라우저에는 그대로 남으니 지워 주세요.
+            </p>
+          )}
           <div className="grid gap-5 md:grid-cols-2">
             {PROFILE_SECTIONS.map((s) => (
               <div key={s.key} className={s.rows > 2 ? "md:col-span-2" : ""}>

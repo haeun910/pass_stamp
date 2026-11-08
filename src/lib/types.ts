@@ -176,8 +176,9 @@ export function newApplication(): Application {
   };
 }
 
-export function profileToText(p: Profile): string {
-  return PROFILE_SECTIONS.filter((s) => p[s.key]?.trim())
+/** 에이전트에 보낼 프로필 글. 연락처는 이력서·경력기술서를 쓸 때만 필요해서 기본으로는 빼요 (개인정보 최소 전송). */
+export function profileToText(p: Profile, opts: { includeContact?: boolean } = {}): string {
+  return PROFILE_SECTIONS.filter((s) => p[s.key]?.trim() && (opts.includeContact || s.key !== "contact"))
     .map((s) => `[${s.label}]\n${p[s.key].trim()}`)
     .join("\n\n");
 }

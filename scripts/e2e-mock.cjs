@@ -26,6 +26,9 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await p.waitForURL(/\/app$/);
   });
   await p.goto(BASE + '/app');
+  // 테스트 서버는 APP_ACCESS_CODE=e2e-code로 띄워요. 브라우저에 코드를 넣어 두고 시작해요.
+  await p.evaluate(() => localStorage.setItem('online-interviewer:access-code', 'e2e-code'));
+  await p.reload(); await p.waitForTimeout(500);
   await shot('01-home-empty');
   await step('profile import', async () => {
     await p.click('text=내 프로필');
@@ -34,6 +37,13 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await p.waitForSelector('text=이렇게 정리했어요');
     await p.click('text=기존 내용에 더하기');
     await shot('02-profile');
+  });
+  await step('sensitive number warning', async () => {
+    await p.fill('textarea >> nth=2', '학력 메모 900101-1234567');
+    await p.waitForSelector('text=주민등록번호로 보이는 번호가 있어요');
+    await p.fill('textarea >> nth=2', '한국대학교 컴퓨터공학과 (2018~2024)');
+    await p.waitForTimeout(300);
+    if ((await p.locator('text=주민등록번호로 보이는').count()) > 0) throw new Error('warning stuck');
   });
   await step('new app', async () => {
     await p.click('aside >> text=홈');
@@ -144,6 +154,17 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await p.goto(p.url().split('?')[0] + '?tab=docs'); await p.waitForTimeout(500);
     const t2 = await p.innerText('main');
     if (!t2.includes('서류')) throw new Error('docs tab broken');
+  });
+  await step('access code brute force limit', async () => {
+    // 서버에 APP_ACCESS_CODE가 있을 때만 의미 있어요. 테스트 서버는 코드를 'e2e-code'로 띄워요.
+    let last = 0;
+    for (let i = 0; i < 25; i++) {
+      const r = await p.request.post(BASE + '/api/agent', { headers: { 'x-access-code': 'wrong' + i }, data: { agent: 'writer' } });
+      last = r.status();
+    }
+    if (last !== 429) throw new Error('expected 429 after repeated wrong codes, got ' + last);
+    const ok = await p.request.post(BASE + '/api/agent', { headers: { 'x-access-code': 'e2e-code' }, data: { agent: 'writer', context: { company: 'x' } } });
+    if (ok.status() !== 200) throw new Error('correct code rejected ' + ok.status());
   });
   await step('security headers and icon', async () => {
     const r = await p.request.get(BASE + '/');

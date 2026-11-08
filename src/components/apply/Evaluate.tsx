@@ -54,7 +54,7 @@ export function EvaluatePanel({
         evaluations: [
           ...d.evaluations,
           { id: uid(), versionId: latestVersionId(d) ?? "", content: res.text, score: parseScore(res.text), at: Date.now() },
-        ].slice(-20),
+        ].slice(-10),
       }));
     }
     setStreaming("");

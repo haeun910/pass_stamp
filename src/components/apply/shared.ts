@@ -24,7 +24,7 @@ export function withSnapshot(doc: Doc, note: string): Pick<Doc, "versions"> {
   if (note === "직접 수정" && last?.note === "직접 수정" && Date.now() - last.at < 10 * 60_000) {
     return { versions: [...doc.versions.slice(0, -1), v] };
   }
-  return { versions: [...doc.versions, v].slice(-30) };
+  return { versions: [...doc.versions, v].slice(-20) };
 }
 
 export function latestVersionId(doc: Doc): string | null {
