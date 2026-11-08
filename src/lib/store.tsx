@@ -171,7 +171,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const latest = useRef<AppData | null>(null);
   const lastSaved = useRef(0);
 
+  // 서버 렌더와 첫 화면이 어긋나지 않게 브라우저 저장소는 마운트 뒤에 읽어요.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 위 설명 참고
     setData(load());
     setReady(true);
   }, []);

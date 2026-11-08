@@ -161,7 +161,9 @@ function DocEditor({
   // 평가 화면에서 "피드백 반영해 수정본 만들기"를 누르면 여기서 이어서 처리해요.
   useEffect(() => {
     if (!pending || agent.busy) return;
+    // 채점 화면에서 넘어온 요청을 한 번만 처리하려고 부모 상태를 바로 지우고 생성을 시작해요.
     clearPending();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 위 설명 참고
     generate("revise", "평가 결과의 '꼭 고칠 부분'과 약점을 모두 반영해 주세요.", pending.evaluation);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending]);

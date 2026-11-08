@@ -222,6 +222,7 @@ export function useHealth() {
     }
   }, []);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh는 fetch 뒤에 비동기로 상태를 바꿔요
     refresh();
   }, [refresh]);
   return { health, refresh };

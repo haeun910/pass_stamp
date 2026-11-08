@@ -15,7 +15,8 @@ export function ResearchPanel({ app, profile, goTab }: PanelProps) {
   const update = (p: Parameters<typeof updateApp>[1]) => updateApp(app.id, p);
 
   const urlInvalid = app.jobUrl.trim() !== "" && !/^https?:\/\/\S+\.\S+/.test(app.jobUrl.trim());
-  const stale = app.researchedAt && Date.now() - app.researchedAt > 1000 * 60 * 60 * 24 * 30;
+  const [openedAt] = useState(() => Date.now()); // 화면을 연 시각 기준으로 "오래된 조사"를 판단해요
+  const stale = app.researchedAt && openedAt - app.researchedAt > 1000 * 60 * 60 * 24 * 30;
 
   const start = async () => {
     setEditing(false);

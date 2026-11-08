@@ -1,6 +1,6 @@
 "use client";
 import { ChevronLeft, Lightbulb, Mic, MicOff } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ScoreStamp } from "@/components/brand";
 import { Markdown } from "@/components/Markdown";
 import { AgentStatus, Badge, Button, Card, Chips, CopyButton, Empty, Field, inputCls, scoreTone } from "@/components/ui";
@@ -212,7 +212,8 @@ function Session({
   const [input, setInput] = useState("");
   const [showTranscript, setShowTranscript] = useState(!session.report);
   const endRef = useRef<HTMLDivElement>(null);
-  const shownAt = useRef<number>(Date.now());
+  const shownAt = useRef<number>(0);
+  const [fresh, setFresh] = useState(false); // 방금 끝난 면접만 도장 애니메이션을 보여줘요
   const s = session.settings;
   const msgs = session.messages;
   const last = msgs[msgs.length - 1];
@@ -231,7 +232,8 @@ function Session({
     return n;
   }, [msgs]);
 
-  const speech = useSpeech();
+  // 음성 인식 결과를 답변 칸에 이어 붙여요.
+  const speech = useSpeech(useCallback((t: string) => setInput((v) => (v ? `${v} ${t}` : t)), []));
 
   const ask = useCallback(
     async (history: ChatMessage[]) => {
@@ -275,7 +277,9 @@ function Session({
 
   const remaining = useCountdown(waitingAnswer && s.answerSeconds > 0, s.answerSeconds, msgs.length);
   const inputRef = useRef(input);
-  inputRef.current = input;
+  useEffect(() => {
+    inputRef.current = input;
+  }, [input]);
   const autoSubmitted = useRef(-1);
   useEffect(() => {
     if (remaining === 0 && waitingAnswer && autoSubmitted.current !== msgs.length) {
@@ -284,19 +288,16 @@ function Session({
     }
   }, [remaining, waitingAnswer, submit, msgs.length]);
 
-  // 음성 인식 결과를 답변 칸에 이어 붙여요.
-  useEffect(() => {
-    speech.onFinal.current = (t: string) => setInput((v) => (v ? `${v} ${t}` : t));
-  }, [speech.onFinal]);
-
   const finish = async () => {
     speech.cancelSpeak();
     if (speech.listening) speech.stopListen();
     setShowTranscript(false);
     const history: ChatMessage[] = [...msgs, { role: "user", content: END_TEXT }];
     const res = await report.run("interviewer", ctx, { messages: history }, (t) => update({ report: t }));
-    if (res.ok && !res.stopped) update({ report: res.text, score: parseScore(res.text), endedAt: Date.now() });
-    else update({ report: "" });
+    if (res.ok && !res.stopped) {
+      update({ report: res.text, score: parseScore(res.text), endedAt: Date.now() });
+      setFresh(true);
+    } else update({ report: "" });
   };
 
   const answeredCount = msgs.filter((m) => m.role === "user" && m.content !== OPENING).length;
@@ -327,7 +328,7 @@ function Session({
             <AgentStatus {...report} onStop={report.stop} />
             {session.score != null && !report.busy && (
               <div className="float-right mb-2 ml-4">
-                <ScoreStamp score={session.score} label="면접" animate={!!session.endedAt && Date.now() - session.endedAt < 8000} />
+                <ScoreStamp score={session.score} label="면접" animate={fresh} />
               </div>
             )}
             {session.report && <Markdown>{session.report}</Markdown>}
@@ -437,8 +438,7 @@ function Session({
 }
 
 function VoiceToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  const [supported, setSupported] = useState(true);
-  useEffect(() => setSupported(speechSupported()), []);
+  const supported = useSyncExternalStore(noSubscribe, speechSupported, () => true);
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-rule p-3">
       <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-900" checked={value} onChange={(e) => onChange(e.target.checked)} />
@@ -458,7 +458,9 @@ function VoiceToggle({ value, onChange }: { value: boolean; onChange: (v: boolea
 function useCountdown(active: boolean, seconds: number, resetKey: number): number | null {
   const [left, setLeft] = useState<number | null>(null);
   useEffect(() => {
+    // 타이머는 질문이 화면에 다 나온 시각(effect 시점)부터 재야 해서 여기서 상태를 초기화해요.
     if (!active) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 위 설명 참고
       setLeft(null);
       return;
     }
@@ -491,15 +493,20 @@ function speechSupported() {
   return Boolean(w.SpeechRecognition || w.webkitSpeechRecognition);
 }
 
-function useSpeech() {
+/** 브라우저 기능 지원 여부처럼 바뀌지 않는 값을 서버 렌더와 어긋나지 않게 읽을 때 써요. */
+const noSubscribe = () => () => {};
+
+function useSpeech(onFinal: (text: string) => void) {
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
-  const [supported, setSupported] = useState(false);
+  const supported = useSyncExternalStore(noSubscribe, speechSupported, () => false);
   const rec = useRef<Recognition | null>(null);
-  const onFinal = useRef<(t: string) => void>(() => {});
+  const onFinalRef = useRef(onFinal);
+  useEffect(() => {
+    onFinalRef.current = onFinal;
+  }, [onFinal]);
 
   useEffect(() => {
-    setSupported(speechSupported());
     return () => {
       rec.current?.stop();
       if (typeof window !== "undefined") window.speechSynthesis?.cancel();
@@ -519,7 +526,7 @@ function useSpeech() {
       let temp = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const res = e.results[i];
-        if (res.isFinal) onFinal.current(res[0].transcript.trim());
+        if (res.isFinal) onFinalRef.current(res[0].transcript.trim());
         else temp += res[0].transcript;
       }
       setInterim(temp);
@@ -558,7 +565,7 @@ function useSpeech() {
   }, []);
 
   return useMemo(
-    () => ({ supported, listening, interim, listen, stopListen, speak, cancelSpeak, onFinal }),
+    () => ({ supported, listening, interim, listen, stopListen, speak, cancelSpeak }),
     [supported, listening, interim, listen, stopListen, speak, cancelSpeak],
   );
 }

@@ -2,7 +2,7 @@
 import { Home, Menu, Plus, Settings, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Wordmark } from "@/components/brand";
 import { ProgressBar } from "@/components/ui";
 import { useHealth } from "@/lib/client";
@@ -16,8 +16,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-
-  useEffect(() => setOpen(false), [pathname]);
 
   const filled = profileFilled(data.profile);
   const apps = [...data.applications].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -111,7 +109,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {open && (
         <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal aria-label="메뉴">
           <div className="absolute inset-0 bg-brand-950/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 max-w-[85%] bg-paper shadow-xl">
+          {/* 메뉴 안의 링크나 버튼을 누르면 서랍을 닫아요. */}
+          <aside
+            className="absolute inset-y-0 left-0 w-72 max-w-[85%] bg-paper shadow-xl"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("a, button")) setOpen(false);
+            }}
+          >
             <button onClick={() => setOpen(false)} className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-900/5" aria-label="메뉴 닫기">
               <X className="size-4" />
             </button>

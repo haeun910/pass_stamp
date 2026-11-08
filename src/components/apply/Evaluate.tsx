@@ -24,6 +24,7 @@ export function EvaluatePanel({
   const doc = docs.find((d) => d.id === docId) ?? docs[0] ?? null;
   const [streaming, setStreaming] = useState("");
   const [viewId, setViewId] = useState<string | null>(null);
+  const [freshId, setFreshId] = useState<string | null>(null); // 방금 받은 채점만 도장 애니메이션을 보여줘요
 
   if (!doc) {
     return (
@@ -50,12 +51,14 @@ export function EvaluatePanel({
       setStreaming,
     );
     if (res.ok && !res.stopped) {
+      const id = uid();
       updateDoc(app.id, doc.id, (d) => ({
         evaluations: [
           ...d.evaluations,
-          { id: uid(), versionId: latestVersionId(d) ?? "", content: res.text, score: parseScore(res.text), at: Date.now() },
+          { id, versionId: latestVersionId(d) ?? "", content: res.text, score: parseScore(res.text), at: Date.now() },
         ].slice(-10),
       }));
+      setFreshId(id);
     }
     setStreaming("");
   };
@@ -110,7 +113,7 @@ export function EvaluatePanel({
             <div className="review-marks relative">
               {shown.score != null && (
                 <div className="float-right mb-2 ml-4 mt-1">
-                  <ScoreStamp key={shown.id} score={shown.score} size={92} animate={shown.id === evals[evals.length - 1]?.id && Date.now() - shown.at < 8000} />
+                  <ScoreStamp key={shown.id} score={shown.score} size={92} animate={shown.id === freshId} />
                 </div>
               )}
               <Markdown>{shown.content}</Markdown>
