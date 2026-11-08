@@ -9,10 +9,10 @@ export const alt = `${SITE.name} · ${SITE.tagline}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const NAVY = "#1b2a4a";
+const INK = "#194c32";
 const PEN = "#d23a2b";
-const PAPER = "#f4f6f9";
-const RULE = "#dde2ea";
+const PAPER = "#f1f6f3";
+const RULE = "#d9e2dd";
 const PASS = "#2e7d5b";
 
 export default async function Image() {
@@ -27,7 +27,7 @@ export default async function Image() {
           display: "flex",
           background: PAPER,
           fontFamily: "Pretendard",
-          color: NAVY,
+          color: INK,
           padding: 64,
         }}
       >
@@ -66,16 +66,18 @@ export default async function Image() {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-            <div style={{ fontSize: 60, lineHeight: 1.2, letterSpacing: -1.5, maxWidth: 920, wordBreak: "keep-all" }}>
-              지원하는 회사의 기준으로 서류를 고치고, 그 회사 면접관과 연습해요.
+            {/* 줄바꿈 위치를 직접 정해요. 자동 줄바꿈은 쉼표만 다음 줄로 넘기는 경우가 있어요. */}
+            <div style={{ display: "flex", flexDirection: "column", fontSize: 60, lineHeight: 1.2, letterSpacing: -1.5 }}>
+              <span>지원하는 회사의 기준으로 서류를 고치고,</span>
+              <span>그 회사 면접관과 연습해요.</span>
             </div>
-            <div style={{ fontSize: 28, color: "#5b6677", lineHeight: 1.4, wordBreak: "keep-all" }}>
+            <div style={{ fontSize: 28, color: "#6f7471", lineHeight: 1.4, wordBreak: "keep-all" }}>
               회사 리서치 · 맞춤 자기소개서 · 회사 기준 채점 · 꼬리질문 모의 면접
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 22, color: "#5b6677" }}>{SITE.url.replace(/^https?:\/\//, "")}</span>
+            <span style={{ fontSize: 22, color: "#6f7471" }}>{SITE.url.replace(/^https?:\/\//, "")}</span>
             {/* 앱 안의 점수 도장과 같은 규칙: 80점 이상은 초록 '합격권'. */}
             <div
               style={{

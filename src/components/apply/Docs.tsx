@@ -330,7 +330,7 @@ function DocEditor({
       {/* 오른쪽: 결과 */}
       <div ref={resultRef} className={`scroll-mt-20 space-y-5 ${doc.content.trim() || agent.busy ? "order-1 xl:order-none" : ""}`}>
         <Card
-          className="doc-sheet rounded-md shadow-[0_14px_36px_-20px_rgba(27,42,74,0.4)] sm:px-9 sm:py-8"
+          className="doc-sheet rounded-md shadow-[0_14px_36px_-20px_var(--shadow-ink)] sm:px-9 sm:py-8"
           title={<span className="font-serif text-lg">{doc.title}</span>}
           subtitle={doc.content.trim() ? `${app.company || "회사"} 제출용, 공백 포함 ${countChars(stripMarkdown(body)).withSpaces.toLocaleString()}자` : undefined}
           actions={

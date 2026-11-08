@@ -75,7 +75,7 @@ function Apply() {
           <div className="min-w-0">
             <h1 className="flex flex-wrap items-center gap-2 font-serif text-[26px] font-bold leading-tight tracking-tight text-brand-900 dark:text-white">
               {app.company || "새 지원"}
-              {app.demo && <span className="rounded bg-marker/60 px-1.5 py-0.5 font-sans text-[11px] font-semibold text-brand-900">예시</span>}
+              {app.demo && <span className="rounded bg-marker/60 px-1.5 py-0.5 font-sans text-[11px] font-semibold text-brand-900 dark:bg-marker dark:text-amber-50">예시</span>}
             </h1>
             <p className="mt-1 text-sm text-slate-500">{app.role || "회사 리서치에서 회사와 직무를 정해 주세요"}</p>
           </div>

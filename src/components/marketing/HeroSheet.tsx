@@ -9,7 +9,7 @@ export function HeroSheet() {
       <div className="absolute inset-x-3 -top-1.5 h-full -rotate-[1.2deg] rounded-md bg-sheet ring-1 ring-rule" aria-hidden />
 
       <figure
-        className="relative rounded-md bg-sheet px-7 pb-9 pt-7 shadow-[0_30px_60px_-30px_rgba(27,42,74,0.45)] ring-1 ring-rule sm:px-10"
+        className="relative rounded-md bg-sheet px-7 pb-9 pt-7 shadow-[0_30px_60px_-30px_var(--shadow-ink)] ring-1 ring-rule sm:px-10"
         aria-label="첨삭된 자기소개서 예시"
       >
         <div className="flex items-start justify-between gap-4 border-b border-rule pb-3 text-xs text-slate-500">

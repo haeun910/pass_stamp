@@ -81,7 +81,7 @@ export function Card({
 /** 서류 한 장. 실제 제출 서류처럼 보이도록 종이 질감과 여백을 줘요. */
 export function Sheet({ children, className = "", header }: { children: ReactNode; className?: string; header?: ReactNode }) {
   return (
-    <section className={`doc-sheet relative rounded-md bg-sheet shadow-[0_1px_0_var(--color-rule),0_12px_32px_-18px_rgba(27,42,74,0.35)] ring-1 ring-rule ${className}`}>
+    <section className={`doc-sheet relative rounded-md bg-sheet shadow-[0_1px_0_var(--color-rule),0_12px_32px_-18px_var(--shadow-ink)] ring-1 ring-rule ${className}`}>
       {header && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rule px-5 py-3 sm:px-8">{header}</div>}
       <div className="px-5 py-6 sm:px-10 sm:py-9">{children}</div>
     </section>

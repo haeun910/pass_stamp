@@ -132,7 +132,7 @@ scripts/e2e-mock.cjs   모의 응답 모드 자동 테스트 (23단계)
 
 ## 디자인
 
-- 색: 남색 잉크(`brand`), 흰 종이(`sheet`), 차가운 회색 바탕(`paper`), 빨간 펜(`pen`)은 채점·첨삭·급한 마감에만, 초록(`pass`)은 80점 이상에만 써요. 토큰은 `src/app/globals.css`의 `@theme`에 있어요.
+- 색: 원고지 초록(`brand`, 제목·주요 버튼·선택 상태), 흰 종이(`sheet`), 초록 기가 아주 살짝 도는 바탕(`paper`), 빨간 펜(`pen`)은 채점·첨삭·급한 마감에만, 합격 초록(`pass`)은 80점 이상에만 써요. 회색은 Tailwind 기본 `slate`의 파란 기를 뺀 값으로 덮어써요. 토큰은 `src/app/globals.css`의 `@theme`에 있고, 팔레트를 바꿀 때는 그 파일과 공유 이미지(`src/app/opengraph-image.tsx`), 브라우저 색(`src/app/layout.tsx`의 `themeColor`)만 고치면 돼요.
 - 글꼴: 제목과 서류 본문은 함렛(Hahmlet), 화면 글자는 프리텐다드. 둘 다 npm 패키지로 자체 호스팅해요.
 - 점수는 둥근 도장(`ScoreStamp`)으로 찍혀요. 80점 이상은 초록 "합격권", 미만은 빨강 "보완 필요".
 

@@ -4,31 +4,46 @@
 
 /*
   합격도장 디자인 토큰
-  - 잉크(brand): 블루블랙 만년필 잉크. 글자, 주요 버튼, 선택 상태.
-  - 종이(paper/sheet): 차가운 흰 종이. 배경과 서류.
+  - 원고지 초록(brand): 원고지 칸선과 채점용 펜의 초록. 제목, 주요 버튼, 선택 상태.
+    빨간 인장(도장)과 보색이라 도장이 가장 먼저 눈에 들어와요. 구인·구직 서비스에 흔한 파란색과도 구분돼요.
+  - 회색(slate): Tailwind 기본 slate의 파란 기를 빼고 초록 쪽으로 아주 살짝 기울인 중립 회색. 밝기는 기본값과 같아요.
+  - 종이(paper/sheet): 흰 종이. 배경과 서류.
   - 빨간펜(pen): 채점과 첨삭에만 써요. 점수 도장, 고칠 부분, 마감 임박.
   - 합격(pass): 기준을 넘었을 때만.
   - 형광펜(marker): 바뀐 부분 강조.
+  색 값은 OKLCH에서 밝기 단계를 맞춰 뽑았어요 (brand 900 ≈ L 0.375, C 0.095, H 158).
 */
 @theme {
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   --font-serif: "Hahmlet Variable", "Noto Serif KR", "Nanum Myeongjo", serif;
 
-  --color-brand-50: #eef2fb;
-  --color-brand-100: #dce3f6;
-  --color-brand-200: #b9c7ec;
-  --color-brand-300: #8ea3dd;
-  --color-brand-400: #5f7bcb;
-  --color-brand-500: #3d5bb8;
-  --color-brand-600: #2b469e;
-  --color-brand-700: #23397f;
-  --color-brand-800: #1e3064;
-  --color-brand-900: #1b2a4a;
-  --color-brand-950: #111a30;
+  --color-brand-50: #f1f9f4;
+  --color-brand-100: #e5f0e9;
+  --color-brand-200: #cdded3;
+  --color-brand-300: #aac6b4;
+  --color-brand-400: #81aa91;
+  --color-brand-500: #5c9172;
+  --color-brand-600: #3d7e5b;
+  --color-brand-700: #276d49;
+  --color-brand-800: #1f5c3d;
+  --color-brand-900: #194c32;
+  --color-brand-950: #0d311f;
 
-  --color-paper: #f4f6f9;
+  --color-slate-50: #f8faf9;
+  --color-slate-100: #f2f5f3;
+  --color-slate-200: #e6e8e6;
+  --color-slate-300: #cfd6d2;
+  --color-slate-400: #9ba19d;
+  --color-slate-500: #6f7471;
+  --color-slate-600: #505652;
+  --color-slate-700: #3c423e;
+  --color-slate-800: #252a27;
+  --color-slate-900: #151916;
+  --color-slate-950: #050806;
+
+  --color-paper: #f1f6f3;
   --color-sheet: #ffffff;
-  --color-rule: #dde2ea;
+  --color-rule: #d9e2dd;
   --color-pen: #d23a2b;
   --color-pen-soft: #fbe9e6;
   --color-pass: #2e7d5b;
@@ -38,9 +53,9 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-paper: #0e1422;
-    --color-sheet: #151c2c;
-    --color-rule: #283246;
+    --color-paper: #0c120e;
+    --color-sheet: #141b17;
+    --color-rule: #29332d;
     --color-pen: #ff6b5c;
     --color-pen-soft: #3a1c1a;
     --color-pass: #5cc79a;
@@ -49,7 +64,11 @@
   }
 }
 
-:root { color-scheme: light dark; }
+:root {
+  color-scheme: light dark;
+  /* 종이 그림자. 브랜드 가장 어두운 색에서 파생해서 팔레트를 바꿔도 따라와요. */
+  --shadow-ink: color-mix(in oklab, var(--color-brand-950) 42%, transparent);
+}
 
 html { -webkit-text-size-adjust: 100%; }
 

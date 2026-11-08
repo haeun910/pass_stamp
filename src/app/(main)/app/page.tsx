@@ -125,13 +125,13 @@ function Home() {
               <Link
                 key={a.id}
                 href={`/apply/${a.id}`}
-                className="group relative flex flex-col rounded-xl border border-rule bg-sheet p-5 transition hover:border-brand-300 hover:shadow-[0_14px_30px_-20px_rgba(27,42,74,0.45)] dark:hover:border-brand-700"
+                className="group relative flex flex-col rounded-xl border border-rule bg-sheet p-5 transition hover:border-brand-300 hover:shadow-[0_14px_30px_-20px_var(--shadow-ink)] dark:hover:border-brand-700"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="flex items-center gap-2 font-serif text-lg font-bold text-brand-900 dark:text-white">
                       <span className="truncate">{a.company || "새 지원"}</span>
-                      {a.demo && <span className="shrink-0 rounded bg-marker/60 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-brand-900">예시</span>}
+                      {a.demo && <span className="shrink-0 rounded bg-marker/60 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-brand-900 dark:bg-marker dark:text-amber-50">예시</span>}
                     </h3>
                     <p className="truncate text-sm text-slate-500">{a.role || "직무를 아직 안 정했어요"}</p>
                   </div>

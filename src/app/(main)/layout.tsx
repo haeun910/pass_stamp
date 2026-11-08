@@ -69,7 +69,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             >
               <span className="min-w-0 truncate">
                 {a.company || "새 지원"}
-                {a.demo && <span className="ml-1.5 rounded bg-marker/60 px-1 text-[10px] font-semibold text-brand-900">예시</span>}
+                {a.demo && <span className="ml-1.5 rounded bg-marker/60 px-1 text-[10px] font-semibold text-brand-900 dark:bg-marker dark:text-amber-50">예시</span>}
                 {a.role && <span className="ml-1.5 text-xs font-normal text-slate-500">{a.role}</span>}
               </span>
               {d && (
