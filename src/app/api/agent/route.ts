@@ -4,6 +4,7 @@ import { LIMITS } from "@/lib/limits";
 import { maskSensitive } from "@/lib/privacy";
 import { MODEL, friendlyError, guard, isMock } from "@/lib/server/guard";
 import { mockStream } from "@/lib/server/mock";
+import { addUsage, emptyUsage, logUsage } from "@/lib/server/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +95,12 @@ export async function POST(req: Request) {
         }
 
         const client = new Anthropic();
+        const started = Date.now();
+        const totals = emptyUsage();
+        let servedBy = MODEL;
+        let rounds = 0;
+        let stop: string | null = null;
+        try {
         // 리서치처럼 서버 도구를 오래 쓰면 pause_turn으로 끊길 수 있어 몇 번 이어서 요청해요.
         // 이어 요청할 때마다 검색 한도(max_uses)가 새로 적용되니, 비용 상한을 위해 3번까지만 이어요.
         for (let round = 0; round < 3; round++) {
@@ -145,6 +152,10 @@ export async function POST(req: Request) {
           }
 
           const final = await s.finalMessage();
+          rounds++;
+          addUsage(totals, final.usage);
+          servedBy = final.model;
+          stop = final.stop_reason;
           if (final.stop_reason === "refusal") {
             send({ type: "notice", text: "이 요청은 처리할 수 없었어요. 입력 내용을 조금 바꿔서 다시 시도해 주세요." });
             break;
@@ -155,6 +166,10 @@ export async function POST(req: Request) {
           }
           if (final.stop_reason !== "pause_turn") break;
           messages.push({ role: "assistant", content: final.content as Anthropic.Beta.BetaContentBlockParam[] });
+        }
+        } finally {
+          // 중간에 끊겨도 이미 쓴 만큼은 남겨요 (끊긴 라운드의 사용량은 SDK가 알려주지 않아 빠질 수 있어요).
+          logUsage(body.agent, servedBy, totals, { rounds, stop, ms: Date.now() - started, aborted: req.signal.aborted });
         }
       } catch (err) {
         if (req.signal.aborted) return;

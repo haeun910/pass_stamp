@@ -3,6 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { maskSensitive } from "@/lib/privacy";
 import { MODEL, friendlyError, guard, isMock } from "@/lib/server/guard";
+import { addUsage, emptyUsage, logUsage } from "@/lib/server/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,6 +86,7 @@ export async function POST(req: Request) {
       system: SYSTEM,
       messages: [{ role: "user", content }],
     });
+    logUsage(`import-${body.kind}`, res.model, addUsage(emptyUsage(), res.usage), { stop: res.stop_reason });
     if (res.stop_reason === "refusal" || !res.parsed_output) {
       return Response.json({ error: "문서에서 정보를 읽지 못했어요. 텍스트로 붙여넣어 보세요." }, { status: 422 });
     }
