@@ -209,6 +209,8 @@ export interface Health {
   mock: boolean;
   needsCode: boolean;
   codeOk: boolean;
+  /** 틀린 코드를 너무 많이 넣어 이 IP가 1시간 동안 잠겼어요. */
+  codeLocked?: boolean;
 }
 
 export function useHealth() {

@@ -43,6 +43,21 @@ export function codeMatches(req: Request): boolean {
   return !code || safeEqual(req.headers.get("x-access-code") ?? "", code);
 }
 
+/**
+ * 접근 코드를 확인하고 틀린 횟수를 세요. 잠긴 IP는 맞는 코드도 "locked"로 막아요.
+ * 그러지 않으면 잠긴 뒤에도 "틀림=429, 맞음=통과"로 갈려서 추측을 계속할 수 있어요.
+ */
+export function checkCode(req: Request, ip = clientIp(req), now = Date.now()): "ok" | "wrong" | "locked" {
+  if (!process.env.APP_ACCESS_CODE) return "ok";
+  const failed = (failedCodes.get(ip) ?? []).filter((t) => now - t < HOUR);
+  if (failed.length >= FAILED_CODE_LIMIT) return "locked";
+  if (codeMatches(req)) return "ok";
+  // 코드를 아직 안 넣은 요청(첫 화면의 상태 확인 등)은 추측이 아니라서 세지 않아요.
+  if (!req.headers.get("x-access-code")) return "wrong";
+  count(failedCodes, ip, FAILED_CODE_LIMIT, now);
+  return "wrong";
+}
+
 export function rateLimit(): number {
   return Number(process.env.RATE_LIMIT_PER_HOUR ?? 60);
 }
@@ -56,10 +71,11 @@ export function guard(req: Request): Response | null {
   if (limit > 0 && !count(hits, ip, limit, now)) {
     return Response.json({ error: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요." }, { status: 429 });
   }
-  if (!codeMatches(req)) {
-    if (!count(failedCodes, ip, FAILED_CODE_LIMIT, now)) {
-      return Response.json({ error: "접근 코드를 너무 여러 번 틀렸어요. 1시간 뒤 다시 시도해 주세요." }, { status: 429 });
-    }
+  const code = checkCode(req, ip, now);
+  if (code === "locked") {
+    return Response.json({ error: "접근 코드를 너무 여러 번 틀렸어요. 1시간 뒤 다시 시도해 주세요." }, { status: 429 });
+  }
+  if (code === "wrong") {
     return Response.json({ error: "접근 코드가 필요해요. 설정에서 접근 코드를 입력해 주세요." }, { status: 401 });
   }
   return null;

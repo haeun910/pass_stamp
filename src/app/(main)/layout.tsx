@@ -137,7 +137,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </Banner>
         )}
         {health?.mock && <Banner tone="amber">모의 응답 모드예요. API 키 없이 화면을 확인하는 용도라 에이전트가 예시 답변을 보여줘요.</Banner>}
-        {health?.needsCode && !health.codeOk && (
+        {health?.codeLocked && <Banner tone="red">접근 코드를 너무 여러 번 틀려서 1시간 동안 잠겼어요. 잠시 후 다시 시도해 주세요.</Banner>}
+        {health?.needsCode && !health.codeOk && !health.codeLocked && (
           <Banner tone="amber">
             접근 코드가 필요해요. <Link href="/settings" className="font-semibold underline">설정</Link>에서 코드를 입력해 주세요.
           </Banner>

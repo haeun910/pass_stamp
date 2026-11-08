@@ -44,7 +44,11 @@ export default function SettingsPage() {
               <Badge tone={health.hasKey ? "green" : health.mock ? "amber" : "red"}>
                 {health.hasKey ? "Claude API 연결됨" : health.mock ? "모의 응답 모드" : "API 키 없음"}
               </Badge>
-              {health.needsCode && <Badge tone={health.codeOk ? "green" : "amber"}>{health.codeOk ? "접근 코드 확인됨" : "접근 코드 필요"}</Badge>}
+              {health.needsCode && (
+                <Badge tone={health.codeOk ? "green" : health.codeLocked ? "red" : "amber"}>
+                  {health.codeOk ? "접근 코드 확인됨" : health.codeLocked ? "1시간 잠김 (틀린 시도 초과)" : "접근 코드 필요"}
+                </Badge>
+              )}
             </>
           ) : (
             <span className="text-slate-500">확인 중…</span>

@@ -1,4 +1,4 @@
-import { clientIp, codeMatches, hasCredentials, isMock } from "@/lib/server/guard";
+import { checkCode, clientIp, hasCredentials, isMock } from "@/lib/server/guard";
 
 // 접근 코드 확인 결과를 돌려주는 곳이라, 코드를 추측하는 데 쓰이지 않게 IP당 시간당 횟수를 제한해요.
 const checks = new Map<string, number[]>();
@@ -13,10 +13,12 @@ export async function GET(req: Request) {
   if (recent.length >= LIMIT) return Response.json({ error: "요청이 너무 많아요." }, { status: 429 });
   recent.push(now);
   checks.set(ip, recent);
+  const code = checkCode(req, ip, now);
   return Response.json({
     hasKey: hasCredentials(),
     mock: isMock(),
     needsCode: Boolean(process.env.APP_ACCESS_CODE),
-    codeOk: codeMatches(req),
+    codeOk: code === "ok",
+    codeLocked: code === "locked",
   });
 }

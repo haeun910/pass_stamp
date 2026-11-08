@@ -224,8 +224,14 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
       last = r.status();
     }
     if (last !== 429) throw new Error('expected 429 after repeated wrong codes, got ' + last);
-    const ok = await p.request.post(BASE + '/api/agent', { headers: { 'x-access-code': 'e2e-code' }, data: { agent: 'writer', context: { company: 'x' } } });
-    if (ok.status() !== 200) throw new Error('correct code rejected ' + ok.status());
+    // 잠긴 IP는 맞는 코드도 막아야 해요. 아니면 "틀림=429, 맞음=통과"로 갈려 계속 추측할 수 있어요.
+    const locked = await p.request.post(BASE + '/api/agent', { headers: { 'x-access-code': 'e2e-code' }, data: { agent: 'writer', context: { company: 'x' } } });
+    if (locked.status() !== 429) throw new Error('locked ip accepted correct code ' + locked.status());
+    const h = await (await p.request.get(BASE + '/api/health', { headers: { 'x-access-code': 'e2e-code' } })).json();
+    if (!h.codeLocked) throw new Error('health did not report lock');
+    // 다른 IP는 영향 없어야 해요 (테스트 서버는 x-real-ip를 그대로 믿어요).
+    const ok = await p.request.post(BASE + '/api/agent', { headers: { 'x-access-code': 'e2e-code', 'x-real-ip': '10.9.9.9' }, data: { agent: 'writer', context: { company: 'x' } } });
+    if (ok.status() !== 200) throw new Error('correct code rejected for other ip ' + ok.status());
   });
   await step('security headers and icon', async () => {
     const r = await p.request.get(BASE + '/');
