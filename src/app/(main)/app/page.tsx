@@ -1,7 +1,8 @@
 "use client";
-import { ArrowUpRight, Plus } from "lucide-react";
+import { ArrowUpRight, Eye, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef } from "react";
 import { ScoreStamp } from "@/components/brand";
 import { Badge, Button, PageHeader, ProgressBar } from "@/components/ui";
 import { appProgress } from "@/lib/progress";
@@ -17,9 +18,28 @@ const FLOW = [
   { title: "모의 면접", desc: "서류를 읽은 면접관이 꼬리질문까지 하고 피드백을 줘요." },
 ];
 
-export default function Home() {
-  const { data, createApp } = useStore();
+export default function HomePage() {
+  return (
+    <Suspense>
+      <Home />
+    </Suspense>
+  );
+}
+
+function Home() {
+  const { ready, data, createApp, addDemoApp } = useStore();
   const router = useRouter();
+  const search = useSearchParams();
+  const wantsDemo = search.get("demo") === "1";
+  const demoHandled = useRef(false);
+
+  // 소개 페이지의 "결과 미리보기"로 들어오면 예시 지원 건을 만들고(이미 있으면 그대로) 개요로 옮겨요.
+  useEffect(() => {
+    if (!wantsDemo || !ready || demoHandled.current) return;
+    demoHandled.current = true;
+    router.replace(`/apply/${addDemoApp()}?tab=overview`);
+  }, [wantsDemo, ready, addDemoApp, router]);
+
   const filled = profileFilled(data.profile);
   const apps = [...data.applications].sort((a, b) => b.updatedAt - a.updatedAt);
   const urgent = apps
@@ -27,6 +47,15 @@ export default function Home() {
     .filter((x) => x.d && (x.d.tone === "urgent" || x.d.tone === "soon"));
 
   const newApp = () => router.push(`/apply/${createApp()}?tab=research`);
+  const openDemo = () => router.push(`/apply/${addDemoApp()}?tab=overview`);
+
+  if (wantsDemo) {
+    return (
+      <p role="status" className="py-20 text-center text-sm text-slate-500">
+        예시 지원 건을 여는 중이에요…
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-10">
@@ -80,8 +109,10 @@ export default function Home() {
               </li>
             ))}
           </ol>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-wrap items-center gap-3">
             <Button size="lg" onClick={newApp}>첫 지원 회사 추가하기</Button>
+            <Button size="lg" variant="secondary" onClick={openDemo}><Eye />예시로 둘러보기</Button>
+            <p className="basis-full text-xs text-slate-500 sm:basis-auto">예시는 가상의 회사로 네 단계 결과물이 어떻게 나오는지 보여 줘요.</p>
           </div>
         </section>
       ) : (
@@ -98,7 +129,10 @@ export default function Home() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="truncate font-serif text-lg font-bold text-brand-900 dark:text-white">{a.company || "새 지원"}</h3>
+                    <h3 className="flex items-center gap-2 font-serif text-lg font-bold text-brand-900 dark:text-white">
+                      <span className="truncate">{a.company || "새 지원"}</span>
+                      {a.demo && <span className="shrink-0 rounded bg-marker/60 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-brand-900">예시</span>}
+                    </h3>
                     <p className="truncate text-sm text-slate-500">{a.role || "직무를 아직 안 정했어요"}</p>
                   </div>
                   {best != null ? (

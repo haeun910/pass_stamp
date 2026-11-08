@@ -69,6 +69,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             >
               <span className="min-w-0 truncate">
                 {a.company || "새 지원"}
+                {a.demo && <span className="ml-1.5 rounded bg-marker/60 px-1 text-[10px] font-semibold text-brand-900">예시</span>}
                 {a.role && <span className="ml-1.5 text-xs font-normal text-slate-500">{a.role}</span>}
               </span>
               {d && (
@@ -98,6 +99,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen md:flex">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-brand-900 focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white">
+        본문으로 건너뛰기
+      </a>
       {/* 모바일 상단 바 */}
       <header className="no-print sticky top-0 z-30 flex h-14 items-center justify-between border-b border-rule bg-paper/90 px-4 backdrop-blur md:hidden">
         <Link href="/app"><Wordmark size={26} /></Link>
@@ -126,7 +130,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       <aside className="no-print sticky top-0 hidden h-screen w-60 shrink-0 border-r border-rule bg-slate-100/60 md:block dark:bg-slate-950/40">{nav}</aside>
 
-      <main className="min-w-0 flex-1">
+      <main id="main" className="min-w-0 flex-1">
         {health && !health.hasKey && !health.mock && (
           <Banner tone="red">
             서버에 Claude API 키가 없어요. <code>.env.local</code>에 <code>ANTHROPIC_API_KEY</code>를 넣고 서버를 다시 시작해 주세요.
@@ -139,8 +143,23 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </Banner>
         )}
         {saveError && <Banner tone="red">브라우저 저장 공간이 가득 찼어요. 설정에서 백업을 내려받고 오래된 지원 회사를 정리해 주세요.</Banner>}
-        <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-9">{ready ? children : <div className="h-40" />}</div>
+        <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-9">{ready ? children : <PageSkeleton />}</div>
       </main>
+    </div>
+  );
+}
+
+/** 브라우저 저장소를 읽는 아주 짧은 순간에 보여요. 화면이 비어 보이지 않게만 해요. */
+function PageSkeleton() {
+  return (
+    <div className="animate-pulse space-y-6 motion-reduce:animate-none" aria-hidden>
+      <div className="h-8 w-56 rounded-md bg-slate-900/5 dark:bg-white/5" />
+      <div className="h-4 w-80 rounded-md bg-slate-900/5 dark:bg-white/5" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-36 rounded-xl bg-slate-900/5 dark:bg-white/5" />
+        ))}
+      </div>
     </div>
   );
 }

@@ -90,6 +90,8 @@ export interface InterviewSession {
 
 export interface Application {
   id: string;
+  /** 결과 미리보기용 예시 지원 건이면 true. 다른 서류로 복사하기 목록에서는 빼요. */
+  demo?: boolean;
   company: string;
   role: string;
   jobUrl: string;

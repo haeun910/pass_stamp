@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { buildDemoApplication } from "./demo";
 import {
   AppData,
   Application,
@@ -148,6 +149,8 @@ interface Store {
   saveError: boolean;
   setProfile: (patch: Partial<Profile>) => void;
   createApp: () => string;
+  /** 예시 지원 건을 넣고 id를 돌려줘요. 이미 있으면 그 id를 돌려줘요. */
+  addDemoApp: () => string;
   deleteApp: (id: string) => void;
   updateApp: (id: string, patch: Partial<Application> | ((a: Application) => Partial<Application>)) => void;
   addDoc: (appId: string, type: DocType) => string;
@@ -240,6 +243,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       createApp: () => {
         const app = newApplication();
         setData((d) => ({ ...d, applications: [app, ...d.applications] }));
+        return app.id;
+      },
+      addDemoApp: () => {
+        const existing = data.applications.find((a) => a.demo);
+        if (existing) return existing.id;
+        const app = buildDemoApplication();
+        // 효과가 두 번 실행돼도(개발 모드 StrictMode) 예시가 둘 생기지 않게 넣기 직전에 다시 확인해요.
+        setData((d) => (d.applications.some((a) => a.demo) ? d : { ...d, applications: [app, ...d.applications] }));
         return app.id;
       },
       deleteApp: (id) => setData((d) => ({ ...d, applications: d.applications.filter((a) => a.id !== id) })),

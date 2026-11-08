@@ -6,6 +6,7 @@ import { StoreProvider } from "@/lib/store";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE.url),
   title: { default: `${SITE.name} · 회사 기준 서류 첨삭과 모의 면접`, template: `%s | ${SITE.name}` },
   description: SITE.description,
   openGraph: { title: SITE.name, description: SITE.description, locale: "ko_KR", type: "website" },

@@ -1,5 +1,7 @@
 /** 서비스 이름, 사업자 정보, 요금제를 한 곳에서 바꿔요. */
 export const SITE = {
+  /** 배포 주소. sitemap, robots, 공유 이미지 링크에 써요. Vercel 환경 변수 NEXT_PUBLIC_SITE_URL로 바꿔요. */
+  url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
   name: "합격도장",
   englishName: "Hapgyeok Dojang",
   tagline: "지원하는 회사의 기준으로 서류를 고치고, 그 회사 면접관과 연습해요.",

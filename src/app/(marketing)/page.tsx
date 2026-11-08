@@ -1,4 +1,4 @@
-import { FileText, Mic, PenLine, Search, Timer } from "lucide-react";
+import { Eye, FileText, Mic, PenLine, Search, Timer } from "lucide-react";
 import Link from "next/link";
 import { ScoreStamp } from "@/components/brand";
 import { HeroSheet } from "@/components/marketing/HeroSheet";
@@ -55,11 +55,11 @@ export default function Landing() {
             <Link href="/app" className="inline-flex h-12 items-center rounded-lg bg-brand-900 px-6 text-[15px] font-semibold text-white hover:bg-brand-800 dark:bg-brand-200 dark:text-brand-950">
               무료로 한 회사 준비하기
             </Link>
-            <Link href="/pricing" className="inline-flex h-12 items-center rounded-lg px-4 text-[15px] font-semibold text-brand-900 hover:bg-brand-900/5 dark:text-brand-200">
-              요금 보기
+            <Link href="/app?demo=1" className="inline-flex h-12 items-center gap-1.5 rounded-lg px-4 text-[15px] font-semibold text-brand-900 hover:bg-brand-900/5 dark:text-brand-200">
+              <Eye className="size-4" />결과 미리보기
             </Link>
           </div>
-          <p className="mt-4 text-sm text-slate-500">가입이나 카드 등록 없이 바로 써 볼 수 있어요.</p>
+          <p className="mt-4 text-sm text-slate-500">가입이나 카드 등록 없이 바로 써 볼 수 있어요. 미리보기는 가상의 회사로 만든 예시예요.</p>
         </div>
         <div className="pb-6 lg:pl-6">
           <HeroSheet />
@@ -147,7 +147,7 @@ export default function Landing() {
       </section>
 
       {/* 마지막 권유 */}
-      <section className="bg-brand-900 dark:bg-brand-950">
+      <section className="bg-brand-900 dark:border-y dark:border-brand-800 dark:bg-brand-950">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-4 py-14 sm:px-6 md:flex-row md:items-center">
           <div>
             <h2 className="font-serif text-2xl font-bold text-white">제출하기 전에, 그 회사 기준으로 한 번 채점받아 보세요.</h2>

@@ -73,7 +73,10 @@ function Apply() {
         </Link>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-serif text-[26px] font-bold leading-tight tracking-tight text-brand-900 dark:text-white">{app.company || "새 지원"}</h1>
+            <h1 className="flex flex-wrap items-center gap-2 font-serif text-[26px] font-bold leading-tight tracking-tight text-brand-900 dark:text-white">
+              {app.company || "새 지원"}
+              {app.demo && <span className="rounded bg-marker/60 px-1.5 py-0.5 font-sans text-[11px] font-semibold text-brand-900">예시</span>}
+            </h1>
             <p className="mt-1 text-sm text-slate-500">{app.role || "회사 리서치에서 회사와 직무를 정해 주세요"}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -82,6 +85,12 @@ function Apply() {
           </div>
         </div>
       </header>
+
+      {app.demo && (
+        <p className="rounded-lg border border-marker/70 bg-marker/20 px-4 py-2.5 text-sm text-brand-900 dark:text-slate-100">
+          가상의 회사로 만든 예시예요. 각 탭에서 리서치, 서류, 채점, 면접 결과가 어떤 모습인지 둘러보세요. 실제 지원은 지원 현황의 &quot;새 지원 회사&quot;로 시작하면 돼요.
+        </p>
+      )}
 
       <nav className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
         <div className="flex min-w-max gap-1 border-b border-rule">

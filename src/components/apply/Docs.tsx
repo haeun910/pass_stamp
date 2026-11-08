@@ -1,13 +1,13 @@
 "use client";
 import Link from "next/link";
-import { Download, PenLine, Plus } from "lucide-react";
+import { Download, FileInput, PenLine, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "@/components/Markdown";
 import { AgentStatus, Badge, Button, Card, CopyButton, Empty, Field, inputCls, scoreTone } from "@/components/ui";
 import { docContext, useAgent } from "@/lib/client";
 import { useStore } from "@/lib/store";
 import { countChars, downloadText, relativeTime, splitAnswers, stripMarkdown } from "@/lib/text";
-import { DOC_TYPES, Doc, DocType, uid } from "@/lib/types";
+import { Application, DOC_TYPES, Doc, DocType, uid } from "@/lib/types";
 import { DiffView } from "./DiffView";
 import { PanelProps, latestVersionId, splitMemo, withSnapshot } from "./shared";
 
@@ -32,10 +32,30 @@ export function DocsPanel({
   pending,
   clearPending,
 }: PanelProps & { docId: string | null; setDocId: (id: string) => void; pending: PendingRevision | null; clearPending: () => void }) {
-  const { addDoc, deleteDoc } = useStore();
+  const { data, addDoc, updateDoc, deleteDoc } = useStore();
   const doc = app.docs.find((d) => d.id === docId) ?? app.docs[0] ?? null;
 
   const add = (t: DocType) => setDocId(addDoc(app.id, t));
+
+  // 다른 지원 건에 써 둔 서류. 예시 지원 건의 서류는 제외해요.
+  const sources: DocSource[] = data.applications
+    .filter((a) => a.id !== app.id && !a.demo)
+    .flatMap((a) => a.docs.filter((d) => d.content.trim()).map((d) => ({ app: a, doc: d })))
+    .sort((x, y) => y.doc.updatedAt - x.doc.updatedAt);
+
+  /** 이전 서류의 본문·문항·요청사항을 새 서류로 복사해요. 버전 기록은 복사 시점부터 새로 시작해요. */
+  const startFrom = (src: DocSource) => {
+    const id = addDoc(app.id, src.doc.type);
+    const content = src.doc.content;
+    updateDoc(app.id, id, {
+      title: src.doc.title,
+      questions: src.doc.questions.map((q) => ({ ...q, id: uid() })),
+      request: src.doc.request,
+      content,
+      versions: [{ id: uid(), content, at: Date.now(), note: `${src.app.company || "이전 지원"} 서류에서 복사` }],
+    });
+    setDocId(id);
+  };
 
   return (
     <div className="space-y-5">
@@ -55,18 +75,31 @@ export function DocsPanel({
             </button>
           );
         })}
-        <AddDocMenu onAdd={add} compact={app.docs.length > 0} />
+        <AddDocMenu onAdd={add} sources={sources} onStartFrom={startFrom} compact={app.docs.length > 0} />
       </div>
 
       {!doc ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {DOC_TYPES.map((t) => (
-            <button key={t} onClick={() => add(t)} className="rounded-xl border border-rule bg-sheet p-5 text-left transition hover:border-brand-400 hover:shadow-sm">
-              <div className="font-semibold">{t}</div>
-              <p className="mt-1 text-sm text-slate-500">{TYPE_DESC[t]}</p>
-              <p className="mt-4 text-sm font-semibold text-brand-800 dark:text-brand-200">만들기</p>
-            </button>
-          ))}
+        <div className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {DOC_TYPES.map((t) => (
+              <button key={t} onClick={() => add(t)} className="rounded-xl border border-rule bg-sheet p-5 text-left transition hover:border-brand-400 hover:shadow-sm">
+                <div className="font-semibold">{t}</div>
+                <p className="mt-1 text-sm text-slate-500">{TYPE_DESC[t]}</p>
+                <p className="mt-4 text-sm font-semibold text-brand-800 dark:text-brand-200">만들기</p>
+              </button>
+            ))}
+          </div>
+          {sources.length > 0 && (
+            <Card title="이전 서류에서 시작하기" subtitle="다른 회사에 쓴 서류를 복사해 와서, 고쳐쓰기로 이 회사에 맞게 바꿔요.">
+              <ul className="divide-y divide-rule">
+                {sources.slice(0, 8).map((src) => (
+                  <li key={src.doc.id}>
+                    <SourceRow src={src} onPick={() => startFrom(src)} />
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
       ) : (
         <DocEditor
@@ -86,7 +119,40 @@ export function DocsPanel({
   );
 }
 
-function AddDocMenu({ onAdd, compact }: { onAdd: (t: DocType) => void; compact: boolean }) {
+type DocSource = { app: Application; doc: Doc };
+
+function SourceRow({ src, onPick, compact }: { src: DocSource; onPick: () => void; compact?: boolean }) {
+  const lastEv = src.doc.evaluations[src.doc.evaluations.length - 1];
+  return (
+    <button
+      onClick={onPick}
+      className={`flex w-full items-center gap-3 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800 ${compact ? "rounded-lg px-3 py-2" : "-mx-2 rounded-lg px-2 py-2.5"}`}
+    >
+      <FileInput className="size-4 shrink-0 text-slate-400" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">
+          {src.app.company || "회사 미정"} <span className="text-slate-400">·</span> {src.doc.title}
+        </span>
+        <span className="block text-xs text-slate-500">
+          {relativeTime(src.doc.updatedAt)} 수정 · 공백 포함 {countChars(stripMarkdown(src.doc.content)).withSpaces.toLocaleString()}자
+        </span>
+      </span>
+      {lastEv?.score != null && <Badge tone={scoreTone(lastEv.score)}>{lastEv.score}</Badge>}
+    </button>
+  );
+}
+
+function AddDocMenu({
+  onAdd,
+  sources,
+  onStartFrom,
+  compact,
+}: {
+  onAdd: (t: DocType) => void;
+  sources: DocSource[];
+  onStartFrom: (src: DocSource) => void;
+  compact: boolean;
+}) {
   const [open, setOpen] = useState(false);
   if (!compact) return null;
   return (
@@ -95,13 +161,21 @@ function AddDocMenu({ onAdd, compact }: { onAdd: (t: DocType) => void; compact: 
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 z-20 mt-1 w-56 rounded-xl border border-rule bg-sheet p-1 shadow-lg">
+          <div className="absolute left-0 z-20 mt-1 w-72 rounded-xl border border-rule bg-sheet p-1 shadow-lg">
             {DOC_TYPES.map((t) => (
               <button key={t} onClick={() => { onAdd(t); setOpen(false); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800">
                 {t}
                 <span className="block text-xs text-slate-500">{TYPE_DESC[t]}</span>
               </button>
             ))}
+            {sources.length > 0 && (
+              <>
+                <p className="mt-1 border-t border-rule px-3 pb-1 pt-2.5 text-xs font-semibold text-slate-500">이전 서류에서 시작하기</p>
+                {sources.slice(0, 5).map((src) => (
+                  <SourceRow key={src.doc.id} src={src} compact onPick={() => { onStartFrom(src); setOpen(false); }} />
+                ))}
+              </>
+            )}
           </div>
         </>
       )}
@@ -413,7 +487,10 @@ function CharCountTable({ doc, body }: { doc: Doc; body: string }) {
     return { a, q, c, limit, over: limit != null && c.withSpaces > limit, low: limit != null && c.withSpaces < limit * 0.8 };
   });
   return (
-    <Card title="문항별 글자 수" subtitle="공백 포함 기준이에요. 사이트마다 세는 방식이 조금 달라 제출 전에 한 번 더 확인해 주세요.">
+    <Card
+      title="문항별 글자 수와 복사"
+      subtitle="글자 수는 공백 포함 기준이에요. 사이트마다 세는 방식이 조금 달라 제출 전에 한 번 더 확인해 주세요. 복사는 문항 제목을 뺀 답변만 가져가요."
+    >
       <ul className="space-y-3">
         {rows.map(({ a, q, c, limit, over, low }) => (
           <li key={a.index} className="space-y-1.5">
@@ -422,10 +499,11 @@ function CharCountTable({ doc, body }: { doc: Doc; body: string }) {
                 <span className="shrink-0 font-medium text-slate-400">{a.index}.</span>
                 <span className="line-clamp-2">{q?.question || a.heading}</span>
               </span>
-              <span className={`shrink-0 tabular-nums ${over ? "font-semibold text-pen" : low ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"}`}>
+              <span className={`shrink-0 pt-1.5 tabular-nums ${over ? "font-semibold text-pen" : low ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"}`}>
                 {c.withSpaces.toLocaleString()}
                 {limit ? <span className="text-slate-400"> / {limit.toLocaleString()}</span> : null}
               </span>
+              <CopyButton text={stripMarkdown(a.body)} label={`${a.index}번 복사`} />
             </div>
             {limit ? (
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">

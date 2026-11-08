@@ -2,10 +2,11 @@ const { chromium } = require('playwright');
 const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', { recursive: true });
 (async () => {
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 1400, height: 950 } });
+  const ctx = await b.newContext({ viewport: { width: 1400, height: 950 }, colorScheme: process.env.DARK ? 'dark' : 'light' });
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
   const p = await ctx.newPage(); p.setDefaultTimeout(8000);
   const errors = [];
-  p.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  p.on('console', m => { if (m.type() === 'error') errors.push(m.text() + ' @ ' + (m.location().url || '')); });
   p.on('pageerror', e => errors.push('PAGEERROR ' + e.message));
   const shot = async n => p.screenshot({ path: `${S}/shots/${n}.png`, fullPage: true });
   const step = async (name, fn) => { try { await fn(); console.log('OK', name); } catch (e) { console.log('FAIL', name, e.message.split('\n')[0]); await shot('fail-' + name); } };
@@ -144,6 +145,66 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await p.reload(); await p.waitForTimeout(800);
     const t = await p.textContent('body');
     if (!t.includes('토스')) throw new Error('lost data');
+  });
+  await step('start from previous doc', async () => {
+    await p.goto(BASE + '/app'); await p.waitForTimeout(400);
+    await p.click('text=새 지원 회사'); await p.waitForURL(/tab=research/);
+    await p.goto(p.url().split('?')[0] + '?tab=docs'); await p.waitForTimeout(500);
+    await shot('11-docs-start-from');
+    await p.locator('button', { hasText: '토스' }).filter({ hasText: '자기소개서' }).first().click();
+    await p.waitForSelector('text=토스 서류에서 복사');
+    const v = await p.inputValue('textarea >> nth=0').catch(() => '');
+    const t = await p.textContent('body');
+    if (!t.includes('지원 동기') && !v.includes('지원 동기')) throw new Error('copied content missing');
+  });
+  await step('copy per question', async () => {
+    await p.click('button:has-text("1번 복사")');
+    await p.waitForSelector('text=복사했어요');
+    const clip = await p.evaluate(() => navigator.clipboard.readText());
+    if (!clip.trim()) throw new Error('clipboard empty');
+    if (/^#+\s/m.test(clip)) throw new Error('clipboard still has markdown heading');
+    await shot('12-copy-per-question');
+  });
+  await step('demo preview', async () => {
+    await p.goto(BASE + '/app?demo=1');
+    await p.waitForURL(/\/apply\/demo-hanbitpay\?tab=overview/);
+    await p.waitForSelector('h1:has-text("한빛페이")');
+    const t = await p.textContent('body');
+    if (!t.includes('예시')) throw new Error('demo badge missing');
+    await shot('13-demo-overview');
+    for (const [tab, mustHave, name] of [['research', '한눈에 보기', '13b-demo-research'], ['docs', '피드백 반영', '13c-demo-docs'], ['evaluate', '86', '13d-demo-evaluate'], ['interview', '74점', '13e-demo-interview']]) {
+      await p.click(`nav >> text=${{ research: '회사 리서치', docs: '서류 작성', evaluate: '회사 기준 채점', interview: '면접 연습' }[tab]}`);
+      await p.waitForTimeout(500);
+      const body = await p.textContent('body');
+      if (!body.includes(mustHave)) throw new Error(`demo ${tab} missing "${mustHave}"`);
+      await shot(name);
+    }
+    // 지난 면접을 열면 리포트가 먼저 보이고, 대화는 접혀 있어요.
+    await p.click('button:has-text("74점") >> visible=true');
+    // 다른 탭 패널은 hidden으로 숨겨져 있어서, 보이는 요소만 찾아요.
+    await p.waitForSelector('text=종합 점수 >> visible=true');
+    await shot('13e2-demo-interview-report');
+    await p.click('button:has-text("펼치기") >> visible=true');
+    await p.waitForSelector('text=면접을 마치겠습니다 >> visible=true');
+    // 두 번 들어가도 예시는 하나만 있어야 해요.
+    await p.goto(BASE + '/app?demo=1'); await p.waitForURL(/demo-hanbitpay/);
+    await p.goto(BASE + '/app'); await p.waitForTimeout(500);
+    const n = await p.locator('main h3:has-text("한빛페이")').count();
+    if (n !== 1) throw new Error('demo count ' + n);
+    await shot('13f-home-with-demo');
+  });
+  await step('not found and seo files', async () => {
+    const r = await p.goto(BASE + '/no-such-page');
+    if (r.status() !== 404) throw new Error('status ' + r.status());
+    await p.waitForSelector('text=이런 주소의 페이지가 없어요');
+    await shot('14-not-found');
+    for (const [path, type, must] of [['/robots.txt', 'text/plain', 'Disallow: /app'], ['/sitemap.xml', 'xml', '/pricing'], ['/opengraph-image', 'image/png', null]]) {
+      const res = await p.request.get(BASE + path);
+      const ct = res.headers()['content-type'] || '';
+      if (!res.ok() || !ct.includes(type)) throw new Error(`${path} ${res.status()} ${ct}`);
+      if (must && !(await res.text()).includes(must)) throw new Error(`${path} missing ${must}`);
+    }
+    await p.goto(BASE + '/app'); await p.waitForTimeout(300);
   });
   await step('broken data recovery', async () => {
     await p.evaluate(() => localStorage.setItem('online-interviewer:v2', JSON.stringify({ version: 2, profile: null, applications: [{ company: '깨진데이터', docs: 'x' }] })));
