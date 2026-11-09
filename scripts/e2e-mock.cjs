@@ -64,6 +64,12 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await p.waitForTimeout(800);
     await shot('04-docs');
   });
+  await step('blank notice', async () => {
+    // 모의 초안에는 [성과 수치 입력] 빈칸이 하나 있어요. 서류 위 안내, 본문 형광 표시, 문항별 표의 빈칸 수가 모두 보여야 해요.
+    await p.waitForSelector('text=채워야 할 빈칸이 1개 있어요');
+    if ((await p.locator('.doc-sheet mark', { hasText: '[성과 수치 입력]' }).count()) !== 1) throw new Error('blank not highlighted');
+    await p.waitForSelector('text=빈칸 1개');
+  });
   await step('revise free', async () => {
     await p.fill('input[placeholder="어떻게 고칠까요?"]', '더 간결하게');
     await p.click('button:has-text("고쳐쓰기")');
@@ -164,6 +170,16 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     if (!clip.trim()) throw new Error('clipboard empty');
     if (/^#+\s/m.test(clip)) throw new Error('clipboard still has markdown heading');
     await shot('12-copy-per-question');
+  });
+  await step('blank markers not counted as over', async () => {
+    // 본문은 650자라 제한(700자) 안인데, [확인 필요: …] 표시까지 세면 넘어요. 빨간 '초과'가 아니라 표시 때문이라는 안내가 떠야 해요.
+    const marker = '[확인 필요: 실제로 확인한 원인과 바꾼 구조를 여기에 적어 주세요]';
+    const body = `### 1. 지원 동기와 입사 후 포부를 작성해 주세요.\n${'가'.repeat(650)}${marker}${marker}\n\n### 2. 직무 역량을 키우기 위해 노력한 경험을 작성해 주세요.\n${'나'.repeat(660)}`;
+    await p.click('button:has-text("편집")');
+    await p.locator('textarea').last().fill(body);
+    await p.waitForSelector('text=빈칸 표시까지 세면');
+    await p.waitForSelector('text=표시를 빼면 제한 안이니');
+    if ((await p.locator('text=/· \\d+자 초과/').count()) > 0) throw new Error('marker-only overflow shown as real overflow');
   });
   await step('demo preview', async () => {
     await p.goto(BASE + '/app?demo=1');

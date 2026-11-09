@@ -20,6 +20,28 @@ export function splitAnswers(content: string): { index: number; heading: string;
   });
 }
 
+/**
+ * 에이전트가 정보가 없어 남긴 [빈칸]과 [확인 필요: …]를 찾는 패턴이에요.
+ * 마크다운 링크([글](주소))는 빼요. 매번 새 정규식을 만들어 lastIndex 상태가 섞이지 않게 해요.
+ */
+export const blankPattern = () => /\[([^[\]\n]{1,80})\](?!\()/g;
+
+/** 본문에 남은 빈칸 목록. 제출 전에 채워야 할 곳이에요. */
+export function findBlanks(text: string): string[] {
+  return [...text.matchAll(blankPattern())].map((m) => m[1].trim()).filter(Boolean);
+}
+
+/** 자소서 문항별 정확한 글자 수를 에이전트에게 보낼 글로 만들어요. 문항 형식을 찾지 못하면 빈 문자열이에요. */
+export function charCountText(content: string, limits: (number | null | undefined)[]): string {
+  return splitAnswers(content)
+    .map((a) => {
+      const c = countChars(stripMarkdown(a.body));
+      const limit = limits[a.index - 1];
+      return `${a.index}번: 공백 포함 ${c.withSpaces}자${limit ? ` / 제한 ${limit}자 (${Math.round((c.withSpaces / limit) * 100)}%)` : ""}, 공백 제외 ${c.withoutSpaces}자`;
+    })
+    .join("\n");
+}
+
 export function parseScore(markdown: string): number | null {
   const m = markdown.match(/종합\s*(?:점수|평가)[^\d\n]{0,12}(\d{1,3})\s*(?:\/|점)/);
   if (!m) return null;

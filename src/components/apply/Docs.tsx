@@ -6,7 +6,7 @@ import { Markdown } from "@/components/Markdown";
 import { AgentStatus, Badge, Button, Card, CopyButton, Empty, Field, inputCls, scoreTone } from "@/components/ui";
 import { docContext, useAgent } from "@/lib/client";
 import { useStore } from "@/lib/store";
-import { countChars, downloadText, relativeTime, splitAnswers, stripMarkdown } from "@/lib/text";
+import { blankPattern, countChars, downloadText, findBlanks, relativeTime, splitAnswers, stripMarkdown } from "@/lib/text";
 import { Application, DOC_TYPES, Doc, DocType, uid } from "@/lib/types";
 import { DiffView } from "./DiffView";
 import { PanelProps, latestVersionId, splitMemo, withSnapshot } from "./shared";
@@ -388,7 +388,10 @@ function DocEditor({
             ) : compare && prevVersion && !agent.busy ? (
               <DiffView before={splitMemo(prevVersion.content).body} after={body} beforeLabel={prevVersion.note} />
             ) : (
-              <Markdown>{body}</Markdown>
+              <>
+                {!agent.busy && <BlankNotice body={body} />}
+                <Markdown highlightBlanks={!agent.busy}>{body}</Markdown>
+              </>
             )}
           </div>
         </Card>
@@ -477,6 +480,29 @@ function QuestionsEditor({ doc, update }: { doc: Doc; update: (p: Partial<Doc>) 
   );
 }
 
+/** 에이전트가 정보가 없어 남긴 빈칸을 제출 전에 놓치지 않게 알려요. 본문만 복사하는 사용자도 보이도록 서류 바로 위에 둬요. */
+function BlankNotice({ body }: { body: string }) {
+  const blanks = findBlanks(body);
+  if (!blanks.length) return null;
+  const unique = [...new Set(blanks)];
+  return (
+    <div role="note" className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+      <p className="font-semibold">채워야 할 빈칸이 {blanks.length}개 있어요</p>
+      <p className="mt-1 leading-relaxed">
+        프로필에서 확인되지 않아 비워 둔 곳이에요. 실제 내용으로 채우거나, 사실이 아니면 그 문장을 지운 뒤 제출하세요.
+      </p>
+      <ul className="mt-2 flex flex-wrap gap-1.5">
+        {unique.slice(0, 6).map((b) => (
+          <li key={b} className="max-w-full truncate rounded bg-white/70 px-1.5 py-0.5 text-xs dark:bg-black/20" title={b}>
+            [{b}]
+          </li>
+        ))}
+        {unique.length > 6 && <li className="px-1 py-0.5 text-xs">외 {unique.length - 6}개</li>}
+      </ul>
+    </div>
+  );
+}
+
 function CharCountTable({ doc, body }: { doc: Doc; body: string }) {
   const answers = splitAnswers(body);
   if (!answers.length) return null;
@@ -484,7 +510,13 @@ function CharCountTable({ doc, body }: { doc: Doc; body: string }) {
     const q = doc.questions[a.index - 1];
     const c = countChars(stripMarkdown(a.body));
     const limit = q?.limit ?? null;
-    return { a, q, c, limit, over: limit != null && c.withSpaces > limit, low: limit != null && c.withSpaces < limit * 0.8 };
+    const blanks = findBlanks(a.body).length;
+    // [확인 필요: …] 표시는 길어서 그것만으로 제한을 넘기기 쉬워요. 표시를 뺀 본문으로 진짜 초과인지 따로 봐요.
+    const bare = blanks ? countChars(stripMarkdown(a.body.replace(blankPattern(), ""))).withSpaces : c.withSpaces;
+    const over = limit != null && bare > limit;
+    const blankOver = limit != null && !over && c.withSpaces > limit;
+    // 작성 에이전트가 제한의 90~100%를 목표로 쓰니 화면 기준도 90%로 맞춰요.
+    return { a, q, c, limit, blanks, bare, over, blankOver, low: limit != null && c.withSpaces < limit * 0.9 };
   });
   return (
     <Card
@@ -492,14 +524,14 @@ function CharCountTable({ doc, body }: { doc: Doc; body: string }) {
       subtitle="글자 수는 공백 포함 기준이에요. 사이트마다 세는 방식이 조금 달라 제출 전에 한 번 더 확인해 주세요. 복사는 문항 제목을 뺀 답변만 가져가요."
     >
       <ul className="space-y-3">
-        {rows.map(({ a, q, c, limit, over, low }) => (
+        {rows.map(({ a, q, c, limit, blanks, bare, over, blankOver, low }) => (
           <li key={a.index} className="space-y-1.5">
             <div className="flex items-start justify-between gap-3 text-sm">
               <span className="flex min-w-0 flex-1 gap-1.5 leading-snug" title={q?.question || a.heading}>
                 <span className="shrink-0 font-medium text-slate-400">{a.index}.</span>
                 <span className="line-clamp-2">{q?.question || a.heading}</span>
               </span>
-              <span className={`shrink-0 pt-1.5 tabular-nums ${over ? "font-semibold text-pen" : low ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"}`}>
+              <span className={`shrink-0 pt-1.5 tabular-nums ${over ? "font-semibold text-pen" : blankOver || low ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"}`}>
                 {c.withSpaces.toLocaleString()}
                 {limit ? <span className="text-slate-400"> / {limit.toLocaleString()}</span> : null}
               </span>
@@ -508,14 +540,26 @@ function CharCountTable({ doc, body }: { doc: Doc; body: string }) {
             {limit ? (
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
                 <div
-                  className={`h-full rounded-full ${over ? "bg-pen" : low ? "bg-amber-400" : "bg-pass"}`}
+                  className={`h-full rounded-full ${over ? "bg-pen" : blankOver || low ? "bg-amber-400" : "bg-pass"}`}
                   style={{ width: `${Math.min(100, (c.withSpaces / limit) * 100)}%` }}
                 />
               </div>
             ) : null}
             <p className="text-xs text-slate-500">
               공백 제외 {c.withoutSpaces.toLocaleString()}자
-              {limit ? (over ? ` · ${(c.withSpaces - limit).toLocaleString()}자 초과` : ` · ${(limit - c.withSpaces).toLocaleString()}자 남음`) : ""}
+              {limit
+                ? over
+                  ? ` · ${(c.withSpaces - limit).toLocaleString()}자 초과`
+                  : blankOver
+                    ? ` · 빈칸 표시까지 세면 ${(c.withSpaces - limit).toLocaleString()}자 초과`
+                    : ` · ${(limit - c.withSpaces).toLocaleString()}자 남음`
+                : ""}
+              {blanks > 0 && (
+                <span className="text-amber-700 dark:text-amber-400">
+                  {" "}
+                  · 빈칸 {blanks}개 (표시를 빼면 {bare.toLocaleString()}자)
+                </span>
+              )}
             </p>
           </li>
         ))}
@@ -523,8 +567,13 @@ function CharCountTable({ doc, body }: { doc: Doc; body: string }) {
       {rows.some((r) => r.over) && (
         <p className="mt-3 text-xs text-pen">글자 수를 넘긴 문항이 있어요. 고쳐쓰기에 &quot;N번 문항을 제한에 맞게 줄여줘&quot;라고 요청해 보세요.</p>
       )}
-      {rows.some((r) => r.low) && !rows.some((r) => r.over) && (
-        <p className="mt-3 text-xs text-amber-700">제한의 80%보다 짧은 문항이 있어요. 보통 90% 이상 채우는 게 좋아요.</p>
+      {rows.some((r) => r.blankOver) && !rows.some((r) => r.over) && (
+        <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
+          빈칸 표시([확인 필요: …])까지 글자 수에 들어가서 제한을 넘은 문항이 있어요. 표시를 빼면 제한 안이니, 빈칸을 실제 내용으로 바꾼 뒤 글자 수를 다시 확인하세요.
+        </p>
+      )}
+      {rows.some((r) => r.low) && !rows.some((r) => r.over || r.blankOver) && (
+        <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">제한의 90%보다 짧은 문항이 있어요. 보통 90% 이상 채우는 게 좋아요.</p>
       )}
     </Card>
   );

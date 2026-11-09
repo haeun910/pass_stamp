@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentContext, AgentId } from "./agents";
 import { LIMITS } from "./limits";
 import { maskSensitive } from "./privacy";
+import { charCountText } from "./text";
 import type { Application, ChatMessage, Doc, InterviewSettings, Profile } from "./types";
 import { profileToText } from "./types";
 
@@ -60,6 +61,7 @@ export function docContext(app: Application, profile: Profile, doc: Doc): AgentC
     docQuestions: doc.type === "자기소개서" ? docQuestionsText(doc) : "",
     docRequest: doc.request,
     document: doc.content,
+    charCounts: doc.type === "자기소개서" ? charCountText(doc.content, doc.questions.map((q) => q.limit)) : "",
   };
 }
 

@@ -4,7 +4,7 @@ import { LIMITS } from "@/lib/limits";
 import { maskSensitive } from "@/lib/privacy";
 import { MODEL, friendlyError, guard, isMock } from "@/lib/server/guard";
 import { mockStream } from "@/lib/server/mock";
-import { addUsage, emptyUsage, logUsage } from "@/lib/server/usage";
+import { UsageLike, addUsage, emptyUsage, logUsage, mergeUsage } from "@/lib/server/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,6 +100,10 @@ export async function POST(req: Request) {
         let servedBy = MODEL;
         let rounds = 0;
         let stop: string | null = null;
+        // 끝나지 않은 라운드의 사용량. 사용자가 중지하거나 연결이 끊겨도 청구는 되니 받은 만큼 남겨요.
+        // message_start에 입력(캐시 포함)이 오고, 출력은 끝 무렵 message_delta에 와서 중간에 끊기면 출력은 빠질 수 있어요.
+        let inflight: UsageLike | null = null;
+        let partial = false;
         try {
         // 리서치처럼 서버 도구를 오래 쓰면 pause_turn으로 끊길 수 있어 몇 번 이어서 요청해요.
         // 이어 요청할 때마다 검색 한도(max_uses)가 새로 적용되니, 비용 상한을 위해 3번까지만 이어요.
@@ -124,7 +128,9 @@ export async function POST(req: Request) {
 
           const toolInputs = new Map<number, { name: string; json: string }>();
           for await (const ev of s) {
-            if (ev.type === "content_block_start") {
+            if (ev.type === "message_start") inflight = mergeUsage(null, ev.message.usage);
+            else if (ev.type === "message_delta") inflight = mergeUsage(inflight, ev.usage);
+            else if (ev.type === "content_block_start") {
               const b = ev.content_block;
               if (b.type === "thinking") send({ type: "status", text: "생각하는 중" });
               else if (b.type === "server_tool_use") toolInputs.set(ev.index, { name: b.name, json: "" });
@@ -154,6 +160,7 @@ export async function POST(req: Request) {
           const final = await s.finalMessage();
           rounds++;
           addUsage(totals, final.usage);
+          inflight = null;
           servedBy = final.model;
           stop = final.stop_reason;
           if (final.stop_reason === "refusal") {
@@ -168,8 +175,12 @@ export async function POST(req: Request) {
           messages.push({ role: "assistant", content: final.content as Anthropic.Beta.BetaContentBlockParam[] });
         }
         } finally {
-          // 중간에 끊겨도 이미 쓴 만큼은 남겨요 (끊긴 라운드의 사용량은 SDK가 알려주지 않아 빠질 수 있어요).
-          logUsage(body.agent, servedBy, totals, { rounds, stop, ms: Date.now() - started, aborted: req.signal.aborted });
+          // 중간에 끊겨도 이미 쓴 만큼은 남겨요. partial이면 끊긴 라운드의 출력 토큰이 빠졌을 수 있어요(ms로 추정 가능).
+          if (inflight) {
+            addUsage(totals, inflight);
+            partial = true;
+          }
+          logUsage(body.agent, servedBy, totals, { rounds, stop, ms: Date.now() - started, aborted: req.signal.aborted, partial });
         }
       } catch (err) {
         if (req.signal.aborted) return;

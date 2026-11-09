@@ -6,7 +6,7 @@ import "server-only";
 const PRICE = { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2, webSearchPerCall: 0.01 };
 const KRW_PER_USD = Number(process.env.KRW_PER_USD ?? 1400);
 
-interface UsageLike {
+export interface UsageLike {
   input_tokens?: number | null;
   output_tokens?: number | null;
   cache_creation_input_tokens?: number | null;
@@ -36,6 +36,16 @@ export function addUsage(t: UsageTotals, u: UsageLike | null | undefined): Usage
   t.webSearch += u.server_tool_use?.web_search_requests ?? 0;
   t.webFetch += u.server_tool_use?.web_fetch_requests ?? 0;
   return t;
+}
+
+/** 스트림 중간에 받은 사용량을 합쳐요. message_delta의 값은 누적값이라 덮어쓰고, 비어 있는 값은 무시해요. */
+export function mergeUsage(base: UsageLike | null, next: UsageLike | null | undefined): UsageLike | null {
+  if (!next) return base;
+  const merged: UsageLike = { ...(base ?? {}) };
+  for (const [k, v] of Object.entries(next) as [keyof UsageLike, UsageLike[keyof UsageLike]][]) {
+    if (v != null) (merged as Record<string, unknown>)[k] = v;
+  }
+  return merged;
 }
 
 export function costUsd(t: UsageTotals): number {
