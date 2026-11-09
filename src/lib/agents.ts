@@ -43,9 +43,13 @@ export const CONTEXT_LABELS: Record<keyof AgentContext, string> = {
   charCounts: "문항별_글자수",
 };
 
+/** 작업마다 고른 모델 등급이에요. 실제 모델 이름은 서버(guard.ts의 modelFor)가 정해요. 고른 근거는 docs/REVIEW.md 10차 실측. */
+export type ModelTier = "opus" | "sonnet" | "haiku";
+
 interface AgentConfig {
   label: string;
   system: string;
+  model: ModelTier;
   effort: "low" | "medium" | "high";
   maxTokens: number;
   tools?: ("web_search" | "web_fetch")[];
@@ -68,6 +72,7 @@ const FACT_RULE = `# 사실 확인 규칙 (다른 지시보다 우선)
 export const AGENTS: Record<AgentId, AgentConfig> = {
   research: {
     label: "회사 리서치",
+    model: "opus",
     effort: "medium",
     maxTokens: 24000,
     tools: ["web_search", "web_fetch"],
@@ -109,6 +114,7 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
 
   writer: {
     label: "서류 작성",
+    model: "opus",
     effort: "high",
     maxTokens: 32000,
     system: `${COMMON}
@@ -149,6 +155,7 @@ ${FACT_RULE}`,
 
   reviser: {
     label: "첨삭 반영 수정",
+    model: "sonnet",
     effort: "high",
     maxTokens: 32000,
     system: `${COMMON}
@@ -172,6 +179,7 @@ ${FACT_RULE}`,
 
   evaluator: {
     label: "회사 기준 평가",
+    model: "sonnet",
     effort: "high",
     maxTokens: 24000,
     system: `${COMMON}
@@ -213,6 +221,7 @@ ${FACT_RULE}`,
 
   interviewer: {
     label: "모의 면접",
+    model: "sonnet",
     effort: "low",
     // 생각(thinking)이 항상 켜져 있어서 마지막 피드백 리포트까지 들어갈 여유를 둬요.
     maxTokens: 16000,
@@ -247,6 +256,7 @@ ${FACT_RULE}`,
 
   questions: {
     label: "예상 질문",
+    model: "opus",
     effort: "medium",
     maxTokens: 24000,
     system: `${COMMON}

@@ -1,6 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { timingSafeEqual } from "node:crypto";
+import type { ModelTier } from "@/lib/agents";
 
 /**
  * IP별 요청 기록. 서버 인스턴스마다 따로 세는 메모리 방식이라, Vercel처럼 인스턴스가 여러 개인 환경에서는
@@ -89,7 +90,21 @@ export function isMock() {
   return process.env.AGENT_MOCK === "1" || (process.env.NODE_ENV !== "production" && !hasCredentials() && process.env.AGENT_MOCK !== "0");
 }
 
-export const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
+const MODEL_IDS: Record<ModelTier, string> = {
+  opus: "claude-opus-5-5",
+  sonnet: "claude-sonnet-5-5",
+  haiku: "claude-haiku-5-5",
+};
+
+/** 작업에 쓸 모델 이름. CLAUDE_MODEL을 넣으면 모든 작업을 그 모델 하나로 고정해요(문제가 생겼을 때 되돌리는 용도). */
+export function modelFor(tier: ModelTier): string {
+  return process.env.CLAUDE_MODEL?.trim() || MODEL_IDS[tier];
+}
+
+/** 거절된 요청을 서버가 다른 모델로 다시 시도하는 기능(fallbacks)은 Haiku에 없어요. Haiku에 보내면 400이 나요. */
+export function supportsServerFallback(model: string): boolean {
+  return !model.startsWith("claude-haiku");
+}
 
 /** Claude API 오류를 사용자에게 보여줄 문장으로 바꿔요. 원문은 서버 로그에만 남겨요. */
 export function friendlyError(err: unknown): string {

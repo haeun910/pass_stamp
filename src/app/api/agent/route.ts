@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { AGENTS, AGENT_IDS, AgentContext, AgentId, CONTEXT_LABELS, buildContextBlock } from "@/lib/agents";
 import { LIMITS } from "@/lib/limits";
 import { maskSensitive } from "@/lib/privacy";
-import { MODEL, friendlyError, guard, isMock } from "@/lib/server/guard";
+import { friendlyError, guard, isMock, modelFor, supportsServerFallback } from "@/lib/server/guard";
 import { mockStream } from "@/lib/server/mock";
 import { UsageLike, addUsage, emptyUsage, logUsage, mergeUsage } from "@/lib/server/usage";
 
@@ -64,6 +64,7 @@ export async function POST(req: Request) {
   if (invalid) return Response.json({ error: invalid }, { status: 400 });
 
   const agent = AGENTS[body.agent];
+  const model = modelFor(agent.model);
   // 주민등록번호 같은 식별번호는 서비스에 필요 없으니 모델로 보내기 전에 가려요 (브라우저에서도 한 번 가리지만 서버에서 다시 확인해요).
   const context: AgentContext = Object.fromEntries(Object.entries(body.context ?? {}).map(([k, v]) => [k, maskSensitive(v as string)]));
   const messages: Anthropic.Beta.BetaMessageParam[] =
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
         const client = new Anthropic();
         const started = Date.now();
         const totals = emptyUsage();
-        let servedBy = MODEL;
+        let servedBy = model;
         let rounds = 0;
         let stop: string | null = null;
         // 끝나지 않은 라운드의 사용량. 사용자가 중지하거나 연결이 끊겨도 청구는 되니 받은 만큼 남겨요.
@@ -110,10 +111,10 @@ export async function POST(req: Request) {
         for (let round = 0; round < 3; round++) {
           const s = client.beta.messages.stream(
             {
-              model: MODEL,
+              model,
               max_tokens: agent.maxTokens,
-              betas: ["server-side-fallback-2026-07-01"],
-              fallbacks: "default",
+              // 안전 분류기가 거절하면 서버가 다른 모델로 한 번 더 시도해요. Haiku에는 이 기능이 없어 빼요.
+              ...(supportsServerFallback(model) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
               output_config: { effort: agent.effort },
               cache_control: { type: "ephemeral" },
               system: [
@@ -159,7 +160,7 @@ export async function POST(req: Request) {
 
           const final = await s.finalMessage();
           rounds++;
-          addUsage(totals, final.usage);
+          addUsage(totals, final.usage, final.model);
           inflight = null;
           servedBy = final.model;
           stop = final.stop_reason;
@@ -177,7 +178,7 @@ export async function POST(req: Request) {
         } finally {
           // 중간에 끊겨도 이미 쓴 만큼은 남겨요. partial이면 끊긴 라운드의 출력 토큰이 빠졌을 수 있어요(ms로 추정 가능).
           if (inflight) {
-            addUsage(totals, inflight);
+            addUsage(totals, inflight, servedBy);
             partial = true;
           }
           logUsage(body.agent, servedBy, totals, { rounds, stop, ms: Date.now() - started, aborted: req.signal.aborted, partial });
