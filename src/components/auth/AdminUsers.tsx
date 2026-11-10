@@ -12,8 +12,8 @@ type Action = "approve" | "block" | "unblock" | "delete" | "reset_password";
 const CONFIRM: Partial<Record<Action, (u: AdminUser) => string>> = {
   delete: (u) =>
     u.status === "pending"
-      ? `${u.email}의 신청을 거절할까요? 신청 기록이 지워지고, 이 사람이 다시 로그인하면 새로 신청하게 돼요.`
-      : `${u.email} 계정을 지울까요? 회원 정보와 로그인 기록이 지워져요. 다시 로그인하면 새로 신청하게 돼요.`,
+      ? `${u.email}의 신청을 거절할까요? 신청 기록이 지워져서, 이 사람이 쓰려면 처음부터 다시 신청해야 해요.`
+      : `${u.email} 계정을 지울까요? 회원 정보와 로그인 기록이 지워져서, 다시 쓰려면 처음부터 새로 신청해야 해요.`,
   block: (u) => `${u.email}의 이용을 중지할까요? 지금 로그인된 기기에서도 바로 로그아웃되고, 다시 허용하기 전까지 로그인할 수 없어요.`,
   reset_password: (u) => `${u.email}에게 임시 비밀번호를 만들어 줄까요? 지금 비밀번호는 바로 쓸 수 없게 되고, 로그인된 기기도 로그아웃돼요.`,
 };

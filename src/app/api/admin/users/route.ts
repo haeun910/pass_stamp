@@ -29,6 +29,8 @@ export async function GET(req: Request) {
   }
   // 만료된 로그인 기록은 개인정보처리방침대로 정리해요. 목록을 열 때 함께 지워요.
   await pool.query(`delete from "session" where "expiresAt" < now()`);
+  // 로그인 시도 기록(Better Auth의 횟수 제한)도 마지막 시도 후 하루가 지나면 지워요. lastRequest는 밀리초예요.
+  await pool.query(`delete from "rateLimit" where "lastRequest" < $1`, [Date.now() - 86_400_000]);
   const { rows } = await pool.query<{
     id: string;
     name: string;

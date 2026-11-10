@@ -1,9 +1,10 @@
 "use client";
-import { ArrowUpRight, Eye, Plus } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Eye, LayoutGrid, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { ScoreStamp } from "@/components/brand";
+import { DeadlineCalendar } from "@/components/DeadlineCalendar";
 import { Badge, Button, PageHeader, ProgressBar } from "@/components/ui";
 import { appProgress } from "@/lib/progress";
 import { SITE } from "@/lib/site";
@@ -18,6 +19,27 @@ const FLOW = [
   { title: "모의 면접", desc: "서류를 읽은 면접관이 꼬리질문까지 하고 피드백을 줘요." },
 ];
 
+type HomeView = "list" | "calendar";
+const VIEW_KEY = "online-interviewer:home-view";
+
+/** 목록과 달력 중 마지막에 본 화면을 기억해요. 저장소를 못 쓰는 브라우저면 목록으로 시작해요. */
+function useHomeView(): [HomeView, (v: HomeView) => void] {
+  const [view, setView] = useState<HomeView>("list");
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 서버 렌더와 어긋나지 않게 마운트 뒤에 읽어요
+      if (localStorage.getItem(VIEW_KEY) === "calendar") setView("calendar");
+    } catch {}
+  }, []);
+  const choose = (v: HomeView) => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {}
+  };
+  return [view, choose];
+}
+
 export default function HomePage() {
   return (
     <Suspense>
@@ -28,6 +50,7 @@ export default function HomePage() {
 
 function Home() {
   const { ready, data, createApp, addDemoApp } = useStore();
+  const [view, setView] = useHomeView();
   const router = useRouter();
   const search = useSearchParams();
   const wantsDemo = search.get("demo") === "1";
@@ -116,55 +139,80 @@ function Home() {
           </div>
         </section>
       ) : (
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {apps.map((a) => {
-            const p = appProgress(a);
-            const d = a.status === "준비 중" ? dDay(a.deadline) : null;
-            const best = p.interviewScore ?? p.docScore;
-            return (
-              <Link
-                key={a.id}
-                href={`/apply/${a.id}`}
-                className="group relative flex flex-col rounded-xl border border-rule bg-sheet p-5 transition hover:border-brand-300 hover:shadow-[0_14px_30px_-20px_var(--shadow-ink)] dark:hover:border-brand-700"
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-slate-500">지원 회사 {apps.length}곳</h2>
+            <div role="group" aria-label="보기 방식" className="inline-flex rounded-lg border border-rule bg-sheet p-0.5">
+              {([
+                ["list", "목록", <LayoutGrid key="i" />],
+                ["calendar", "마감 달력", <CalendarDays key="i" />],
+              ] as const).map(([key, label, icon]) => (
+                <button
+                  key={key}
+                  onClick={() => setView(key)}
+                  aria-pressed={view === key}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition [&>svg]:size-3.5 ${view === key ? "bg-brand-900 text-white dark:bg-brand-200 dark:text-brand-950" : "text-slate-600 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/5"}`}
+                >
+                  {icon}
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {view === "calendar" ? (
+            <DeadlineCalendar apps={apps} />
+          ) : (
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {apps.map((a) => {
+                const p = appProgress(a);
+                const d = a.status === "준비 중" ? dDay(a.deadline) : null;
+                const best = p.interviewScore ?? p.docScore;
+                return (
+                  <Link
+                    key={a.id}
+                    href={`/apply/${a.id}`}
+                    className="group relative flex flex-col rounded-xl border border-rule bg-sheet p-5 transition hover:border-brand-300 hover:shadow-[0_14px_30px_-20px_var(--shadow-ink)] dark:hover:border-brand-700"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="flex items-center gap-2 font-serif text-lg font-bold text-brand-900 dark:text-white">
+                          <span className="truncate">{a.company || "새 지원"}</span>
+                          {a.demo && <span className="shrink-0 rounded bg-marker/60 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-brand-900 dark:bg-marker dark:text-amber-50">예시</span>}
+                        </h3>
+                        <p className="truncate text-sm text-slate-500">{a.role || "직무를 아직 안 정했어요"}</p>
+                      </div>
+                      {best != null ? (
+                        <ScoreStamp score={best} size={54} label={p.interviewScore != null ? "면접" : "서류"} rotate={-10} />
+                      ) : (
+                        <ArrowUpRight className="size-5 shrink-0 text-slate-300 transition group-hover:text-brand-700" />
+                      )}
+                    </div>
+
+                    <div className="mt-5 flex gap-1" aria-label={`${p.doneCount}/4 단계 완료`}>
+                      {p.steps.map((s) => (
+                        <div key={s.key} title={s.label} className={`h-1 flex-1 rounded-full ${s.done ? "bg-brand-900 dark:bg-brand-300" : "bg-slate-200 dark:bg-slate-800"}`} />
+                      ))}
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <Badge tone={a.status === "최종 합격" ? "green" : a.status === "불합격" ? "red" : "slate"}>{a.status}</Badge>
+                      {d && <span className={`font-semibold tabular-nums ${d.tone === "urgent" ? "text-pen" : ""}`}>마감 {d.label}</span>}
+                      <span className="ml-auto">{p.nextStep ? `다음 할 일: ${p.nextStep.label}` : "모든 단계를 마쳤어요"}</span>
+                    </div>
+                    <span className="sr-only">마지막 수정 {relativeTime(a.updatedAt)}</span>
+                  </Link>
+                );
+              })}
+              <button
+                onClick={newApp}
+                className="flex min-h-[148px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-rule text-sm font-semibold text-slate-500 transition hover:border-brand-400 hover:text-brand-900 dark:hover:text-white"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="flex items-center gap-2 font-serif text-lg font-bold text-brand-900 dark:text-white">
-                      <span className="truncate">{a.company || "새 지원"}</span>
-                      {a.demo && <span className="shrink-0 rounded bg-marker/60 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-brand-900 dark:bg-marker dark:text-amber-50">예시</span>}
-                    </h3>
-                    <p className="truncate text-sm text-slate-500">{a.role || "직무를 아직 안 정했어요"}</p>
-                  </div>
-                  {best != null ? (
-                    <ScoreStamp score={best} size={54} label={p.interviewScore != null ? "면접" : "서류"} rotate={-10} />
-                  ) : (
-                    <ArrowUpRight className="size-5 shrink-0 text-slate-300 transition group-hover:text-brand-700" />
-                  )}
-                </div>
-
-                <div className="mt-5 flex gap-1" aria-label={`${p.doneCount}/4 단계 완료`}>
-                  {p.steps.map((s) => (
-                    <div key={s.key} title={s.label} className={`h-1 flex-1 rounded-full ${s.done ? "bg-brand-900 dark:bg-brand-300" : "bg-slate-200 dark:bg-slate-800"}`} />
-                  ))}
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <Badge tone={a.status === "최종 합격" ? "green" : a.status === "불합격" ? "red" : "slate"}>{a.status}</Badge>
-                  {d && <span className={`font-semibold tabular-nums ${d.tone === "urgent" ? "text-pen" : ""}`}>마감 {d.label}</span>}
-                  <span className="ml-auto">{p.nextStep ? `다음 할 일: ${p.nextStep.label}` : "모든 단계를 마쳤어요"}</span>
-                </div>
-                <span className="sr-only">마지막 수정 {relativeTime(a.updatedAt)}</span>
-              </Link>
-            );
-          })}
-          <button
-            onClick={newApp}
-            className="flex min-h-[148px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-rule text-sm font-semibold text-slate-500 transition hover:border-brand-400 hover:text-brand-900 dark:hover:text-white"
-          >
-            <Plus className="size-5" />
-            지원 회사 추가
-          </button>
-        </section>
+                <Plus className="size-5" />
+                지원 회사 추가
+              </button>
+            </section>
+          )}
+        </div>
       )}
     </div>
   );

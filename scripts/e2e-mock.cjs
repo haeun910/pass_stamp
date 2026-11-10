@@ -13,7 +13,8 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
   await ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
   const p = await ctx.newPage(); p.setDefaultTimeout(8000);
   const errors = [];
-  p.on('console', m => { if (m.type() === 'error') errors.push(m.text() + ' @ ' + (m.location().url || '')); });
+  // 없는 주소를 일부러 여는 404 확인 단계의 기록은 오류로 세지 않아요.
+  p.on('console', m => { if (m.type() === 'error' && !(m.location().url || '').endsWith('/no-such-page')) errors.push(m.text() + ' @ ' + (m.location().url || '')); });
   p.on('pageerror', e => errors.push('PAGEERROR ' + e.message));
   const shot = async n => p.screenshot({ path: `${S}/shots/${n}.png`, fullPage: true });
   const step = async (name, fn) => { try { await fn(); console.log('OK', name); } catch (e) { console.log('FAIL', name, e.message.split('\n')[0]); await shot('fail-' + name); } };
