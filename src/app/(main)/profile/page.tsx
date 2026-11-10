@@ -2,7 +2,6 @@
 import { FileUp } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button, Card, Field, PageHeader, ProgressBar, Spinner, inputCls } from "@/components/ui";
-import { authHeaders } from "@/lib/client";
 import { useStore } from "@/lib/store";
 import { findSensitive } from "@/lib/privacy";
 import { PROFILE_SECTIONS, Profile, profileFilled } from "@/lib/types";
@@ -86,7 +85,7 @@ function ImportCard({ onImport }: { onImport: (p: Profile, mode: "merge" | "repl
     try {
       const r = await fetch("/api/import", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const j = await r.json();

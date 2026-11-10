@@ -1,8 +1,15 @@
+// 모의 응답 모드 화면 테스트. 서버는 로그인 설정과 AGENT_MOCK=1로 띄우고(scripts/e2e-auth.cjs 위쪽 설명 참고),
+// 같은 DATABASE_URL, BETTER_AUTH_SECRET을 넣고 실행해요. 승인된 테스트 회원으로 로그인한 상태에서 시작해요.
 const { chromium } = require('playwright');
+const { connect } = require('./e2e-session.cjs');
 const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', { recursive: true });
 (async () => {
+  const { db, makeUser, sessionCookie } = await connect();
+  const userId = await makeUser(`e2e-mock-${Date.now()}@example.com`, '홍길동', 'approved');
+  const KEY = `online-interviewer:v2:${userId}`;
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1400, height: 950 }, colorScheme: process.env.DARK ? 'dark' : 'light' });
+  await ctx.addCookies([await sessionCookie(userId)]);
   await ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
   const p = await ctx.newPage(); p.setDefaultTimeout(8000);
   const errors = [];
@@ -26,10 +33,7 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await p.click('header >> text=시작하기');
     await p.waitForURL(/\/app$/);
   });
-  await p.goto(BASE + '/app');
-  // 테스트 서버는 APP_ACCESS_CODE=e2e-code로 띄워요. 브라우저에 코드를 넣어 두고 시작해요.
-  await p.evaluate(() => localStorage.setItem('online-interviewer:access-code', 'e2e-code'));
-  await p.reload(); await p.waitForTimeout(500);
+  await p.goto(BASE + '/app'); await p.waitForTimeout(500);
   await shot('01-home-empty');
   await step('profile import', async () => {
     await p.click('text=내 프로필');
@@ -223,7 +227,7 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     await p.goto(BASE + '/app'); await p.waitForTimeout(300);
   });
   await step('broken data recovery', async () => {
-    await p.evaluate(() => localStorage.setItem('online-interviewer:v2', JSON.stringify({ version: 2, profile: null, applications: [{ company: '깨진데이터', docs: 'x' }] })));
+    await p.evaluate((key) => localStorage.setItem(key, JSON.stringify({ version: 2, profile: null, applications: [{ company: '깨진데이터', docs: 'x' }] })), KEY);
     await p.goto(BASE + '/app'); await p.waitForTimeout(800);
     const t = await p.innerText('main');
     if (!t.includes('깨진데이터')) throw new Error('broken app not shown');
@@ -232,22 +236,16 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
     const t2 = await p.innerText('main');
     if (!t2.includes('서류')) throw new Error('docs tab broken');
   });
-  await step('access code brute force limit', async () => {
-    // 서버에 APP_ACCESS_CODE가 있을 때만 의미 있어요. 테스트 서버는 코드를 'e2e-code'로 띄워요.
-    let last = 0;
-    for (let i = 0; i < 25; i++) {
-      const r = await p.request.post(BASE + '/api/agent', { headers: { 'x-access-code': 'wrong' + i }, data: { agent: 'writer' } });
-      last = r.status();
-    }
-    if (last !== 429) throw new Error('expected 429 after repeated wrong codes, got ' + last);
-    // 잠긴 IP는 맞는 코드도 막아야 해요. 아니면 "틀림=429, 맞음=통과"로 갈려 계속 추측할 수 있어요.
-    const locked = await p.request.post(BASE + '/api/agent', { headers: { 'x-access-code': 'e2e-code' }, data: { agent: 'writer', context: { company: 'x' } } });
-    if (locked.status() !== 429) throw new Error('locked ip accepted correct code ' + locked.status());
-    const h = await (await p.request.get(BASE + '/api/health', { headers: { 'x-access-code': 'e2e-code' } })).json();
-    if (!h.codeLocked) throw new Error('health did not report lock');
-    // 다른 IP는 영향 없어야 해요 (테스트 서버는 x-real-ip를 그대로 믿어요).
-    const ok = await p.request.post(BASE + '/api/agent', { headers: { 'x-access-code': 'e2e-code', 'x-real-ip': '10.9.9.9' }, data: { agent: 'writer', context: { company: 'x' } } });
-    if (ok.status() !== 200) throw new Error('correct code rejected for other ip ' + ok.status());
+  await step('login required for ai', async () => {
+    // 쿠키 없이 보낸 요청은 막혀야 해요. 로그인한 이 브라우저의 요청은 통과해요.
+    const anon = await b.newContext();
+    const r = await anon.request.post(BASE + '/api/agent', { data: { agent: 'writer', context: { company: 'x' } } });
+    await anon.close();
+    if (r.status() !== 401) throw new Error('anonymous agent call ' + r.status());
+    const ok = await p.request.post(BASE + '/api/agent', { data: { agent: 'writer', instruction: 'x', context: { company: 'x' } } });
+    if (ok.status() !== 200) throw new Error('member agent call ' + ok.status());
+    const h = await (await p.request.get(BASE + '/api/health')).json();
+    if (h.auth !== 'on') throw new Error('health auth ' + JSON.stringify(h));
   });
   await step('security headers and icon', async () => {
     const r = await p.request.get(BASE + '/');
@@ -265,4 +263,6 @@ const S = process.argv[2] || 'e2e-shots'; require('fs').mkdirSync(S + '/shots', 
   });
   console.log('ERRORS', JSON.stringify(errors.slice(0, 10)));
   await b.close();
+  await db.query('delete from "user" where id = $1', [userId]);
+  await db.end();
 })();

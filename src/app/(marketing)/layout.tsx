@@ -12,9 +12,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <Link href="/#features" className="hidden rounded-lg px-3 py-2 text-slate-600 hover:text-brand-900 sm:block dark:text-slate-300 dark:hover:text-white">기능</Link>
-            <Link href="/pricing" className="rounded-lg px-3 py-2 text-slate-600 hover:text-brand-900 dark:text-slate-300 dark:hover:text-white">요금</Link>
+            {!SITE.beta && <Link href="/pricing" className="rounded-lg px-3 py-2 text-slate-600 hover:text-brand-900 dark:text-slate-300 dark:hover:text-white">요금</Link>}
             <Link href="/#faq" className="hidden rounded-lg px-3 py-2 text-slate-600 hover:text-brand-900 sm:block dark:text-slate-300 dark:hover:text-white">자주 묻는 질문</Link>
-            <Link href="/app" className="ml-2 inline-flex h-9 items-center rounded-lg bg-brand-900 px-4 font-semibold text-white hover:bg-brand-800 dark:bg-brand-200 dark:text-brand-950">
+            <Link href="/login" className="rounded-lg px-3 py-2 text-slate-600 hover:text-brand-900 dark:text-slate-300 dark:hover:text-white">로그인</Link>
+            <Link href="/app" className="ml-1 inline-flex h-9 items-center rounded-lg bg-brand-900 px-4 font-semibold text-white hover:bg-brand-800 dark:bg-brand-200 dark:text-brand-950">
               시작하기
             </Link>
           </nav>
@@ -44,7 +45,7 @@ function Footer() {
           </dl>
         </div>
         <nav className="flex flex-wrap content-start gap-x-5 gap-y-2 text-sm text-slate-600 md:flex-col dark:text-slate-300">
-          <Link href="/pricing" className="hover:text-brand-900 dark:hover:text-white">요금</Link>
+          {!SITE.beta && <Link href="/pricing" className="hover:text-brand-900 dark:hover:text-white">요금</Link>}
           <Link href="/terms" className="hover:text-brand-900 dark:hover:text-white">이용약관</Link>
           <Link href="/privacy" className="font-semibold hover:text-brand-900 dark:hover:text-white">개인정보처리방침</Link>
           <a href={`mailto:${SITE.supportEmail}`} className="hover:text-brand-900 dark:hover:text-white">문의하기</a>

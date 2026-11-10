@@ -1,19 +1,22 @@
 "use client";
 import { useRef, useState } from "react";
-import { Badge, Button, Card, PageHeader, inputCls } from "@/components/ui";
+import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { SITE } from "@/lib/site";
-import { getAccessCode, setAccessCode, useHealth } from "@/lib/client";
+import { ChangePassword } from "@/components/auth/ChangePassword";
+import { DeleteAccount } from "@/components/auth/DeleteAccount";
+import { signOutTo } from "@/lib/auth-client";
+import { useHealth } from "@/lib/client";
 import { normalizeData, useStore } from "@/lib/store";
 import { downloadText, todayStringSafe } from "@/lib/text";
 import { emptyProfile } from "@/lib/types";
+import { useViewer } from "@/lib/viewer-context";
 
 export default function SettingsPage() {
-  const { data, replaceAll } = useStore();
-  const { health, refresh } = useHealth();
-  const [code, setCode] = useState(getAccessCode);
+  const { data, replaceAll, forget } = useStore();
+  const { health } = useHealth();
+  const { auth, viewer } = useViewer();
   const [msg, setMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-
   // 브라우저 저장 공간은 보통 5MB 안팎이에요 (UTF-16 기준). 그 전에 미리 알려요.
   const size = JSON.stringify(data).length * 2;
   const STORAGE_LIMIT = 5 * 1024 * 1024;
@@ -35,7 +38,50 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <PageHeader title="설정과 백업" description="로그인 없이 쓰는 동안에는 모든 데이터가 이 브라우저에만 저장돼요." />
+      <PageHeader
+        title="설정과 백업"
+        description={
+          auth
+            ? "프로필, 서류, 면접 기록은 이 브라우저에 계정별로 저장돼요. 서버에는 로그인 정보(이름, 이메일)만 있어요."
+            : "로그인 없이 쓰는 동안에는 모든 데이터가 이 브라우저에만 저장돼요."
+        }
+      />
+
+      {viewer && (
+        <Card title="계정">
+          <div className="space-y-4 text-sm">
+            <dl className="grid gap-x-6 gap-y-1 sm:grid-cols-[auto_1fr]">
+              <dt className="text-slate-500">이름</dt>
+              <dd className="font-medium">{viewer.name || "이름 없음"}</dd>
+              <dt className="text-slate-500">이메일</dt>
+              <dd className="font-medium">{viewer.email}</dd>
+            </dl>
+            <Button variant="secondary" onClick={() => signOutTo("/")}>로그아웃</Button>
+          </div>
+        </Card>
+      )}
+
+      {viewer &&
+        (viewer.isAdmin ? (
+          <Card title="관리자 계정">
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+              관리자 계정의 비밀번호는 배포 설정의 <code>ADMIN_PASSWORD</code>로 정해요. 값을 바꾸고 다시 배포하면 새 비밀번호가 적용되고, 로그인된 기기는 모두 로그아웃돼요.
+            </p>
+          </Card>
+        ) : (
+          <>
+            <Card title="비밀번호 바꾸기" subtitle="운영자에게 임시 비밀번호를 받았다면 여기서 새로 정해 주세요.">
+              <ChangePassword />
+            </Card>
+            <Card title="회원 탈퇴" subtitle="회원 정보와 로그인 기록이 바로 지워지고, 이 기기에 저장된 서류도 함께 지워요.">
+              <DeleteAccount
+                label="회원 탈퇴"
+                confirmText="탈퇴하면 되돌릴 수 없어요. 다른 기기에 저장한 서류는 그 기기에서 따로 지워 주세요. 계속하려면 비밀번호를 입력해 주세요."
+                beforeLeave={forget}
+              />
+            </Card>
+          </>
+        ))}
 
       <Card title="서버 상태">
         <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -44,26 +90,15 @@ export default function SettingsPage() {
               <Badge tone={health.hasKey ? "green" : health.mock ? "amber" : "red"}>
                 {health.hasKey ? "Claude API 연결됨" : health.mock ? "모의 응답 모드" : "API 키 없음"}
               </Badge>
-              {health.needsCode && (
-                <Badge tone={health.codeOk ? "green" : health.codeLocked ? "red" : "amber"}>
-                  {health.codeOk ? "접근 코드 확인됨" : health.codeLocked ? "1시간 잠김 (틀린 시도 초과)" : "접근 코드 필요"}
-                </Badge>
-              )}
+              <Badge tone={health.auth === "on" ? "green" : health.auth === "missing" ? "red" : "amber"}>
+                {health.auth === "on" ? "로그인 사용 중" : health.auth === "missing" ? "로그인 설정 없음 (AI 기능 막힘)" : "로그인 꺼짐 (로컬 개발)"}
+              </Badge>
             </>
           ) : (
             <span className="text-slate-500">확인 중…</span>
           )}
         </div>
       </Card>
-
-      {health?.needsCode && (
-        <Card title="접근 코드" subtitle="운영자가 정한 코드예요. 이 브라우저에만 저장돼요.">
-          <div className="flex max-w-md gap-2">
-            <input className={inputCls} type="password" value={code} onChange={(e) => setCode(e.target.value)} placeholder="접근 코드" />
-            <Button onClick={() => { setAccessCode(code.trim()); refresh(); }}>저장</Button>
-          </div>
-        </Card>
-      )}
 
       <Card title="데이터 백업" subtitle="브라우저 기록을 지우거나 다른 기기로 옮길 때는 백업 파일을 내려받아 두세요.">
         <div className="space-y-4">

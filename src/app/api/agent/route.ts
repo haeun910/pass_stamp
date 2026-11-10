@@ -51,8 +51,8 @@ function validate(body: Body): string | null {
 }
 
 export async function POST(req: Request) {
-  const blocked = guard(req);
-  if (blocked) return blocked;
+  const access = await guard(req);
+  if (access instanceof Response) return access;
 
   let body: Body;
   try {
@@ -181,7 +181,7 @@ export async function POST(req: Request) {
             addUsage(totals, inflight, servedBy);
             partial = true;
           }
-          logUsage(body.agent, servedBy, totals, { rounds, stop, ms: Date.now() - started, aborted: req.signal.aborted, partial });
+          logUsage(body.agent, servedBy, totals, { user: access.userId, rounds, stop, ms: Date.now() - started, aborted: req.signal.aborted, partial });
         }
       } catch (err) {
         if (req.signal.aborted) return;

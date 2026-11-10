@@ -127,20 +127,45 @@ function migrateLegacy(raw: string): AppData | null {
   }
 }
 
-function load(): AppData {
+function readKey(key: string): AppData | null {
+  const raw = localStorage.getItem(key);
+  return raw ? normalizeData(JSON.parse(raw)) : null;
+}
+
+/**
+ * 저장 키. 로그인하면 계정마다 따로 저장해서, 한 브라우저를 여러 사람이 써도 서로의 서류가 보이지 않아요.
+ * 로그인을 안 쓰는 로컬 개발은 예전 키를 그대로 써요.
+ */
+export function storageKeyFor(owner: string | null): string {
+  return owner ? `${KEY}:${owner}` : KEY;
+}
+
+/** 이 브라우저에 저장된 한 계정의 데이터를 지워요(로그아웃·탈퇴 때). */
+export function clearStoredData(key: string) {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const parsed = normalizeData(JSON.parse(raw));
-      if (parsed) return parsed;
-    }
-    const legacy = localStorage.getItem(LEGACY_KEY);
-    if (legacy) {
-      const migrated = migrateLegacy(legacy);
-      if (migrated) return migrated;
+    localStorage.removeItem(key);
+  } catch {}
+}
+
+/**
+ * 저장소를 읽어요. adoptLegacy면 로그인 전에 이 브라우저에 쌓인 데이터(예전 키)를 이 계정으로 옮겨 와요.
+ * 옮긴 뒤에는 예전 키를 지워서 다른 계정이 같은 데이터를 또 가져가지 않게 해요.
+ */
+function load(key: string, adoptLegacy: boolean): { data: AppData; adopted: boolean } {
+  try {
+    const own = readKey(key);
+    if (own) return { data: own, adopted: false };
+    if (key === KEY || adoptLegacy) {
+      const base = key !== KEY ? readKey(KEY) : null;
+      if (base) return { data: base, adopted: true };
+      const legacy = localStorage.getItem(LEGACY_KEY);
+      if (legacy) {
+        const migrated = migrateLegacy(legacy);
+        if (migrated) return { data: migrated, adopted: key !== KEY };
+      }
     }
   } catch {}
-  return emptyData();
+  return { data: emptyData(), adopted: false };
 }
 
 interface Store {
@@ -162,38 +187,59 @@ interface Store {
     patch: Partial<InterviewSession> | ((s: InterviewSession) => Partial<InterviewSession>),
   ) => void;
   replaceAll: (data: AppData) => void;
+  /** 이 브라우저에서 이 계정의 데이터를 지우고, 이후로는 저장하지 않아요(로그아웃하며 지우기, 회원 탈퇴). */
+  forget: () => void;
 }
 
 const Ctx = createContext<Store | null>(null);
 
-export function StoreProvider({ children }: { children: React.ReactNode }) {
+export function StoreProvider({
+  children,
+  storageKey = KEY,
+  adoptLegacy = false,
+}: {
+  children: React.ReactNode;
+  /** storageKeyFor로 만든 키. 바뀌면 key prop으로 Provider를 새로 띄워 주세요. */
+  storageKey?: string;
+  /** 로그인 전 데이터를 이 계정으로 옮겨 올지. 승인된 계정에만 켜요. */
+  adoptLegacy?: boolean;
+}) {
   const [data, setData] = useState<AppData>(emptyData);
   const [ready, setReady] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef<AppData | null>(null);
   const lastSaved = useRef(0);
+  const stopped = useRef(false);
 
   // 서버 렌더와 첫 화면이 어긋나지 않게 브라우저 저장소는 마운트 뒤에 읽어요.
   useEffect(() => {
+    const { data: loaded, adopted } = load(storageKey, adoptLegacy);
+    if (adopted) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(loaded));
+        localStorage.removeItem(KEY);
+        localStorage.removeItem(LEGACY_KEY);
+      } catch {}
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 위 설명 참고
-    setData(load());
+    setData(loaded);
     setReady(true);
-  }, []);
+  }, [storageKey, adoptLegacy]);
 
   const flush = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
-    if (!latest.current) return;
+    if (!latest.current || stopped.current) return;
     try {
-      localStorage.setItem(KEY, JSON.stringify(latest.current));
+      localStorage.setItem(storageKey, JSON.stringify(latest.current));
       lastSaved.current = Date.now();
       latest.current = null;
       setSaveError(false);
     } catch {
       setSaveError(true);
     }
-  }, []);
+  }, [storageKey]);
 
   // 스트리밍 중에는 매 토큰마다 저장하지 않도록 모아서 저장하되, 2초 넘게 미루지는 않아요.
   useEffect(() => {
@@ -219,7 +265,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // 다른 탭에서 바뀐 내용도 반영해요.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === KEY && e.newValue) {
+      if (e.key === storageKey && e.newValue) {
         try {
           const next = normalizeData(JSON.parse(e.newValue));
           if (next) setData(next);
@@ -228,7 +274,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  }, [storageKey]);
 
   const mapApp = useCallback((id: string, fn: (a: Application) => Application) => {
     setData((d) => ({ ...d, applications: d.applications.map((a) => (a.id === id ? { ...fn(a), updatedAt: Date.now() } : a)) }));
@@ -274,8 +320,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           interviews: a.interviews.map((s) => (s.id === sessionId ? { ...s, ...(typeof patch === "function" ? patch(s) : patch) } : s)),
         })),
       replaceAll: (next) => setData(normalizeData(next) ?? emptyData()),
+      forget: () => {
+        stopped.current = true;
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = null;
+        latest.current = null;
+        clearStoredData(storageKey);
+      },
     }),
-    [ready, data, saveError, mapApp],
+    [ready, data, saveError, mapApp, storageKey],
   );
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;

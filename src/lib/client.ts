@@ -7,26 +7,6 @@ import { charCountText } from "./text";
 import type { Application, ChatMessage, Doc, InterviewSettings, Profile } from "./types";
 import { profileToText } from "./types";
 
-const CODE_KEY = "online-interviewer:access-code";
-
-export function getAccessCode(): string {
-  try {
-    return localStorage.getItem(CODE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-export function setAccessCode(code: string) {
-  try {
-    localStorage.setItem(CODE_KEY, code);
-  } catch {}
-}
-
-export function authHeaders(): Record<string, string> {
-  const code = getAccessCode();
-  return code ? { "x-access-code": code } : {};
-}
-
 export function todayString() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -143,7 +123,7 @@ export function useAgent() {
       try {
         const res = await fetch("/api/agent", {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             agent,
             context: clipped.context,
@@ -209,17 +189,15 @@ export function useAgent() {
 export interface Health {
   hasKey: boolean;
   mock: boolean;
-  needsCode: boolean;
-  codeOk: boolean;
-  /** 틀린 코드를 너무 많이 넣어 이 IP가 1시간 동안 잠겼어요. */
-  codeLocked?: boolean;
+  /** on: 로그인 사용, off: 로컬 개발(로그인 없음), missing: 프로덕션인데 로그인 설정이 빠짐 */
+  auth: "on" | "off" | "missing";
 }
 
 export function useHealth() {
   const [health, setHealth] = useState<Health | null>(null);
   const refresh = useCallback(async () => {
     try {
-      const r = await fetch("/api/health", { headers: authHeaders(), cache: "no-store" });
+      const r = await fetch("/api/health", { cache: "no-store" });
       setHealth(await r.json());
     } catch {
       setHealth(null);

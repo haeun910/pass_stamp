@@ -1,4 +1,5 @@
 import { Application, newApplication, newDoc, uid } from "./types";
+import { DEMO_APP_ID } from "./demo-id";
 
 /**
  * 결과 미리보기용 예시 지원 건이에요. "한빛페이"는 가상의 회사이고, 지원자 경험도 모두 지어낸 것이에요.
@@ -311,7 +312,7 @@ const QUESTION_BANK = `## 꼭 나올 질문 (5개)
 - 프론트엔드 팀이 A/B 테스트를 직접 설계하나요, 데이터 팀이 하나요?`;
 
 /** 예시 지원 건은 id를 고정해서, 같은 순간에 두 번 넣으려 해도 하나만 생기게 해요. */
-export const DEMO_APP_ID = "demo-hanbitpay";
+export { DEMO_APP_ID };
 
 export function buildDemoApplication(): Application {
   const now = Date.now();

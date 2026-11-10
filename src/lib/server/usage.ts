@@ -94,7 +94,7 @@ export function mergeUsage(base: UsageLike | null, next: UsageLike | null | unde
   return merged;
 }
 
-/** 한 줄 JSON으로 남겨서 Vercel 로그에서 `[usage]`로 검색하고 합산하기 쉽게 해요. */
+/** 한 줄 JSON으로 남겨서 Vercel 로그에서 `[usage]`로 검색하고 합산하기 쉽게 해요. 사람은 이메일 대신 계정 id(user)로만 남겨요. */
 export function logUsage(task: string, model: string, t: UsageTotals, extra: Record<string, unknown> = {}) {
   console.info(`[usage] ${JSON.stringify({ task, model, ...t, usd: Number(t.usd.toFixed(4)), krw: Math.round(t.usd * KRW_PER_USD), ...extra })}`);
 }

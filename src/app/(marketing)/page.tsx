@@ -1,8 +1,10 @@
 import { Eye, FileText, Mic, PenLine, Search, Timer } from "lucide-react";
 import Link from "next/link";
 import { ScoreStamp } from "@/components/brand";
+import { BetaAccess } from "@/components/marketing/BetaAccess";
 import { HeroSheet } from "@/components/marketing/HeroSheet";
 import { Pricing } from "@/components/marketing/Pricing";
+import { DEMO_APP_ID } from "@/lib/demo-id";
 import { SITE } from "@/lib/site";
 
 const STEPS = [
@@ -23,17 +25,25 @@ const FAQ = [
   },
   {
     q: "내 서류와 정보는 어디에 저장되나요?",
-    a: "프로필, 서류, 면접 기록은 지금 쓰는 브라우저에 저장돼요. 에이전트를 부를 때만 필요한 내용이 AI 모델(Anthropic Claude)로 전달되고, 학습에 쓰이지 않아요. 주민등록번호 같은 번호는 전달 전에 가려요. 설정에서 백업 파일을 내려받아 다른 기기로 옮길 수 있고, 공용 PC에서는 사용 후 설정에서 모든 데이터를 지워 주세요.",
+    a: "로그인 정보(이름, 이메일)만 회원 관리를 위해 서버에 저장해요. 프로필, 서류, 면접 기록은 지금 쓰는 브라우저에 계정별로 저장되고 서버에는 보관하지 않아요. 에이전트를 부를 때만 필요한 내용이 AI 모델(Anthropic Claude)로 전달되고, 학습에 쓰이지 않아요. 주민등록번호 같은 번호는 전달 전에 가려요. 다른 기기로 옮길 때는 설정에서 백업 파일을 내려받아 주세요. 공용 PC에서는 로그아웃할 때 '이 기기에 저장된 내 서류도 지우기'를 체크해 주세요.",
   },
   {
     q: "음성으로 면접 연습을 할 수 있나요?",
     a: "네. 면접관 질문을 소리로 읽어 주고, 마이크로 답하면 글로 옮겨요. 크롬과 엣지에서 가장 잘 동작해요.",
   },
-  {
-    q: "해지와 환불은 어떻게 하나요?",
-    a: "구독은 언제든 해지할 수 있고, 해지해도 결제한 기간이 끝날 때까지 쓸 수 있어요. 환불 기준은 이용약관에 적어 두었어요.",
-  },
+  SITE.beta
+    ? {
+        q: "지금 바로 쓸 수 있나요?",
+        a: "비공개 베타 기간이라 운영자 승인이 필요해요. 이메일로 이용 신청을 하면 운영자가 확인하고 승인해요. 승인되면 바로 쓸 수 있어요. 베타 기간에는 무료예요. 승인 전에도 예시 결과는 로그인 없이 볼 수 있어요.",
+      }
+    : {
+        q: "해지와 환불은 어떻게 하나요?",
+        a: "구독은 언제든 해지할 수 있고, 해지해도 결제한 기간이 끝날 때까지 쓸 수 있어요. 환불 기준은 이용약관에 적어 두었어요.",
+      },
 ];
+
+const START = SITE.beta ? { href: "/signup", label: "이용 신청하기" } : { href: "/app", label: "무료로 한 회사 준비하기" };
+const PREVIEW = `/apply/${DEMO_APP_ID}?tab=overview`;
 
 export default function Landing() {
   return (
@@ -52,14 +62,18 @@ export default function Landing() {
             {SITE.name}은 지원하는 회사를 먼저 조사하고, 그 회사의 인재상과 평가 기준으로 자기소개서를 채점하고 고쳐요. 마지막에는 그 서류를 읽은 면접관과 연습해요.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link href="/app" className="inline-flex h-12 items-center rounded-lg bg-brand-900 px-6 text-[15px] font-semibold text-white hover:bg-brand-800 dark:bg-brand-200 dark:text-brand-950">
-              무료로 한 회사 준비하기
+            <Link href={START.href} className="inline-flex h-12 items-center rounded-lg bg-brand-900 px-6 text-[15px] font-semibold text-white hover:bg-brand-800 dark:bg-brand-200 dark:text-brand-950">
+              {START.label}
             </Link>
-            <Link href="/app?demo=1" className="inline-flex h-12 items-center gap-1.5 rounded-lg px-4 text-[15px] font-semibold text-brand-900 hover:bg-brand-900/5 dark:text-brand-200">
+            <Link href={PREVIEW} className="inline-flex h-12 items-center gap-1.5 rounded-lg px-4 text-[15px] font-semibold text-brand-900 hover:bg-brand-900/5 dark:text-brand-200">
               <Eye className="size-4" />결과 미리보기
             </Link>
           </div>
-          <p className="mt-4 text-sm text-slate-500">가입이나 카드 등록 없이 바로 써 볼 수 있어요. 미리보기는 가상의 회사로 만든 예시예요.</p>
+          <p className="mt-4 max-w-[34rem] text-sm leading-relaxed text-slate-500">
+            {SITE.beta
+              ? "지금은 비공개 베타예요. 이메일로 이용 신청을 하면 운영자 승인 뒤 무료로 쓸 수 있어요. 미리보기는 로그인 없이 볼 수 있는 가상 회사 예시예요."
+              : "카드 등록 없이 한 회사를 끝까지 준비해 볼 수 있어요. 미리보기는 가상의 회사로 만든 예시예요."}
+          </p>
         </div>
         <div className="pb-6 lg:pl-6">
           <HeroSheet />
@@ -117,16 +131,28 @@ export default function Landing() {
         />
       </section>
 
-      {/* 요금 */}
-      <section id="pricing" className="border-t border-rule bg-sheet/60">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-          <h2 className="font-serif text-2xl font-bold text-brand-900 dark:text-white">요금</h2>
-          <p className="mt-2 text-slate-500">한 회사는 무료로 끝까지 준비해 볼 수 있어요.</p>
-          <div className="mt-10">
-            <Pricing />
+      {/* 요금. 비공개 베타 동안에는 요금제 대신 이용 방법을 보여줘요. */}
+      {SITE.beta ? (
+        <section id="beta" className="scroll-mt-20 border-t border-rule bg-sheet/60">
+          <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+            <h2 className="font-serif text-2xl font-bold text-brand-900 dark:text-white">지금은 비공개 베타예요</h2>
+            <p className="mt-2 text-slate-500">결제 없이, 승인된 분께 모든 기능을 열어 두고 있어요.</p>
+            <div className="mt-10">
+              <BetaAccess />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section id="pricing" className="border-t border-rule bg-sheet/60">
+          <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+            <h2 className="font-serif text-2xl font-bold text-brand-900 dark:text-white">요금</h2>
+            <p className="mt-2 text-slate-500">한 회사는 무료로 끝까지 준비해 볼 수 있어요.</p>
+            <div className="mt-10">
+              <Pricing />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* FAQ */}
       <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-4 py-20 sm:px-6">
@@ -153,8 +179,8 @@ export default function Landing() {
             <h2 className="font-serif text-2xl font-bold text-white">제출하기 전에, 그 회사 기준으로 한 번 채점받아 보세요.</h2>
             <p className="mt-2 text-brand-200">지금 쓰고 있는 자기소개서를 붙여넣기만 하면 돼요.</p>
           </div>
-          <Link href="/app" className="inline-flex h-12 shrink-0 items-center rounded-lg bg-white px-6 text-[15px] font-semibold text-brand-900 hover:bg-brand-50">
-            무료로 시작하기
+          <Link href={START.href} className="inline-flex h-12 shrink-0 items-center rounded-lg bg-white px-6 text-[15px] font-semibold text-brand-900 hover:bg-brand-50">
+            {SITE.beta ? START.label : "무료로 시작하기"}
           </Link>
         </div>
       </section>

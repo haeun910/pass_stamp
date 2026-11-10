@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { BetaAccess } from "@/components/marketing/BetaAccess";
 import { Pricing } from "@/components/marketing/Pricing";
+import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = { title: "요금" };
 
@@ -14,6 +16,18 @@ const COMPARE = [
 ];
 
 export default function PricingPage() {
+  // 결제를 붙이기 전(비공개 베타)에는 정하지 않은 가격을 보여주지 않아요.
+  if (SITE.beta) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+        <h1 className="font-serif text-3xl font-bold text-brand-900 dark:text-white">요금</h1>
+        <p className="mt-2 text-slate-500">지금은 비공개 베타라 승인된 분은 결제 없이 모든 기능을 써요. 정식 요금제는 출시 때 공개해요.</p>
+        <div className="mt-10">
+          <BetaAccess />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
       <h1 className="font-serif text-3xl font-bold text-brand-900 dark:text-white">요금</h1>

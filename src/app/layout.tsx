@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@fontsource-variable/hahmlet/wght.css";
 import { SITE } from "@/lib/site";
-import { StoreProvider } from "@/lib/store";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className="bg-paper text-slate-900 antialiased dark:text-slate-100">
-        <StoreProvider>{children}</StoreProvider>
+        {children}
       </body>
     </html>
   );

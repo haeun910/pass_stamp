@@ -2,7 +2,7 @@
 import { Check, ChevronLeft, SearchX } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { DocsPanel, PendingRevision } from "@/components/apply/Docs";
 import { EvaluatePanel } from "@/components/apply/Evaluate";
 import { InterviewPanel } from "@/components/apply/Interview";
@@ -10,6 +10,7 @@ import { OverviewPanel } from "@/components/apply/Overview";
 import { ResearchPanel } from "@/components/apply/Research";
 import { TabKey } from "@/components/apply/shared";
 import { Badge, Button, Empty } from "@/components/ui";
+import { DEMO_APP_ID } from "@/lib/demo-id";
 import { appProgress } from "@/lib/progress";
 import { useApp, useStore } from "@/lib/store";
 import { dDay } from "@/lib/text";
@@ -35,7 +36,8 @@ function Apply() {
   const search = useSearchParams();
   const router = useRouter();
   const app = useApp(id);
-  const { data } = useStore();
+  const { data, addDemoApp } = useStore();
+  const isDemoId = id === DEMO_APP_ID;
   const tab = (TABS.find((t) => t.key === search.get("tab"))?.key ?? "overview") as TabKey;
   const [docId, setDocId] = useState<string | null>(search.get("doc"));
   const [pending, setPending] = useState<PendingRevision | null>(null);
@@ -49,7 +51,19 @@ function Apply() {
     [id, router],
   );
 
+  // 랜딩의 "결과 미리보기"는 이 주소로 바로 들어와요. 예시 지원 건이 없으면 만들어서 보여줘요.
+  useEffect(() => {
+    if (isDemoId && !app) addDemoApp();
+  }, [isDemoId, app, addDemoApp]);
+
   if (!app) {
+    if (isDemoId) {
+      return (
+        <p role="status" className="py-20 text-center text-sm text-slate-500">
+          예시 지원 건을 여는 중이에요…
+        </p>
+      );
+    }
     return (
       <Empty icon={<SearchX />} title="지원 회사를 찾을 수 없어요">
         지원 건을 찾을 수 없어요. 삭제됐거나 다른 브라우저에서 만든 지원 건일 수 있어요.
